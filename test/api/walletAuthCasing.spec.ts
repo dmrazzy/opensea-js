@@ -19,22 +19,33 @@ import { WalletAuthAPI } from "../../src/api/walletAuth"
  */
 
 /**
- * Locate the OpenAPI spec by walking up from the working directory.
+ * Locate the OpenAPI spec.
+ *
+ * `node_modules/@opensea/api-types/opensea-api.json` comes first because it is
+ * the only location that exists in **both** contexts this suite runs in: a
+ * workspace symlink in the monorepo, and the installed package on the public
+ * `opensea-js` mirror, where `packages/api-types/` doesn't exist at all and
+ * api-types is an ordinary npm dependency. (`opensea-api.json` is in the
+ * package's `files`, so it ships.) The monorepo paths stay as a fallback for
+ * a checkout whose deps aren't installed.
  *
  * Deliberately not `import.meta.url`: `tsconfig.check.json` compiles the tests
- * under a module setting that disallows it. Walking up also keeps this working
- * whether vitest runs from the package or the repo root.
+ * under a module setting that disallows it.
  */
 function findSpecPath(): string {
   let dir = process.cwd()
   for (let depth = 0; depth < 5; depth++) {
-    const candidate = resolve(dir, "packages/api-types/opensea-api.json")
-    if (existsSync(candidate)) return candidate
-    const sibling = resolve(dir, "../api-types/opensea-api.json")
-    if (existsSync(sibling)) return sibling
+    for (const relative of [
+      "node_modules/@opensea/api-types/opensea-api.json",
+      "packages/api-types/opensea-api.json",
+      "../api-types/opensea-api.json",
+    ]) {
+      const candidate = resolve(dir, relative)
+      if (existsSync(candidate)) return candidate
+    }
     dir = resolve(dir, "..")
   }
-  throw new Error("Could not locate packages/api-types/opensea-api.json")
+  throw new Error("Could not locate opensea-api.json")
 }
 
 /** Operations whose request body is camelCase on the wire, per the OpenAPI spec. */

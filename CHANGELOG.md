@@ -1,5 +1,15 @@
 # @opensea/sdk
 
+## 11.7.2
+
+### Patch Changes
+
+- 23a3772: Fix the wallet-auth casing test failing on the public `opensea-js` mirror
+
+  The spec-derived tripwire added in 11.7.1 located `opensea-api.json` at `packages/api-types/opensea-api.json`, which only exists inside the devtools monorepo. On the public mirror the SDK is synced standalone and `@opensea/api-types` is an ordinary npm dependency, so the lookup threw and failed `npm test` during the publish workflow — blocking the 11.7.1 npm release.
+
+  It now resolves `node_modules/@opensea/api-types/opensea-api.json` first, the one path present in both layouts (a workspace symlink in the monorepo, the installed package on the mirror), keeping the monorepo paths as a fallback. No change to what the test asserts.
+
 ## 11.7.1
 
 ### Patch Changes
