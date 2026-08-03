@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import { AccountsAPI } from "../../src/api/accounts"
 import type {
+  AgentProfileRelationshipsResponse,
   ClosedPositionsResponse,
   PositionTokenTransfersResponse,
   WalletPnlResponse,
@@ -109,6 +110,22 @@ describe("API: AccountsAPI P&L", () => {
         chain: "ethereum",
         limit: 20,
       })
+    })
+  })
+
+  describe("getAgentProfileRelationships", () => {
+    test("fetches public agent relationships for an address or username", async () => {
+      const mockResponse = {
+        publicAgentWallets: [],
+      } as unknown as AgentProfileRelationshipsResponse
+
+      mockGet.mockResolvedValue(mockResponse)
+
+      await accountsAPI.getAgentProfileRelationships("alice/example")
+
+      expect(mockGet.mock.calls[0][0]).toBe(
+        "/api/v2/accounts/alice%2Fexample/agent-relationships",
+      )
     })
   })
 })

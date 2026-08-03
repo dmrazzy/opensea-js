@@ -106,6 +106,11 @@ export const getOfferPaymentToken = (chain: Chain) => {
       return "0x3bd359c1119da7da1d913d1c4d2b7c461115433a" // WMON
     case Chain.Robinhood:
       return "0x0bd7d308f8e1639fab988df18a8011f41eacad73" // WETH
+    // Payment tokens not yet mapped in the SDK
+    case Chain.StableChain:
+      throw new Error(
+        `Chain ${chain} is not supported for OpenSea Seaport offers`,
+      )
     default: {
       const exhaustiveChain: never = chain
       throw new Error(`Unknown offer currency for ${exhaustiveChain}`)
@@ -162,6 +167,11 @@ export const getListingPaymentToken = (chain: Chain) => {
       return "0x0000000000000000000000000000000000000000" // ANIME
     case Chain.Robinhood:
       return "0x0000000000000000000000000000000000000000" // ETH
+    // Payment tokens not yet mapped in the SDK
+    case Chain.StableChain:
+      throw new Error(
+        `Chain ${chain} is not supported for OpenSea Seaport listings`,
+      )
     default: {
       const exhaustiveChain: never = chain
       throw new Error(`Unknown listing currency for ${exhaustiveChain}`)

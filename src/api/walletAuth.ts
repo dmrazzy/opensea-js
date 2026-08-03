@@ -152,6 +152,11 @@ export class WalletAuthAPI {
     )
   }
 
+  /**
+   * `CancelRequest` carries `offererSignature`, which is camelCase on the wire.
+   * It is optional, so snake-casing it didn't fail the request — it just dropped
+   * the signature, turning a signed cancel into an unsigned one. Sent verbatim.
+   */
   cancelOrder(
     chain: string,
     protocolAddress: string,
@@ -162,6 +167,8 @@ export class WalletAuthAPI {
       "POST",
       `/api/v2/orders/chain/${segment(chain)}/protocol/${segment(protocolAddress)}/${segment(orderHash)}/cancel`,
       body,
+      undefined,
+      { snakeizeBody: false },
     )
   }
 
@@ -297,11 +304,20 @@ export class WalletAuthAPI {
     )
   }
 
+  /**
+   * `UpdateProfileSettingsRequest` is camelCase on the wire (`displayName`,
+   * `externalUrl`, `profileImageToken`, `bannerImageToken`), so the body is sent
+   * verbatim. Snake-casing it silently drops every field except `bio`, which
+   * survives only because it is a single word — the request still returns 200,
+   * so the loss is invisible to the caller.
+   */
   updateProfileSettings(body: WalletAuthRequest<"update_profile_settings">) {
     return this.fetcher.request<OperationResponse<"update_profile_settings">>(
       "PATCH",
       "/api/v2/profile",
       body,
+      undefined,
+      { snakeizeBody: false },
     )
   }
 
@@ -313,19 +329,33 @@ export class WalletAuthAPI {
     )
   }
 
+  /**
+   * `UploadProfileImageRequest` is camelCase on the wire (`imageType`,
+   * `contentType`) and both are required, so snake-casing the body made this
+   * call fail validation every time. Sent verbatim.
+   */
   createProfileImageUpload(body: WalletAuthRequest<"upload_profile_image">) {
     return this.fetcher.request<OperationResponse<"upload_profile_image">>(
       "POST",
       "/api/v2/profile/images",
       body,
+      undefined,
+      { snakeizeBody: false },
     )
   }
 
+  /**
+   * `SetNftPfpRequest` is camelCase on the wire (`contractAddress`, `tokenId`,
+   * `collectionSlug`) and the first two are required, so snake-casing the body
+   * made this call fail validation every time. Sent verbatim.
+   */
   setProfileNftPfp(body: WalletAuthRequest<"set_profile_nft_pfp">) {
     return this.fetcher.request<OperationResponse<"set_profile_nft_pfp">>(
       "POST",
       "/api/v2/profile/nft-pfp",
       body,
+      undefined,
+      { snakeizeBody: false },
     )
   }
 
@@ -396,5 +426,19 @@ export class WalletAuthAPI {
     return this.fetcher.request<
       OperationResponse<"remove_wallet_agent_designation">
     >("DELETE", `/api/v2/accounts/wallets/${segment(wallet)}/agent`)
+  }
+
+  makeWalletPrivate(wallet: string) {
+    return this.fetcher.request<OperationResponse<"make_wallet_private">>(
+      "PUT",
+      `/api/v2/accounts/wallets/${segment(wallet)}/private`,
+    )
+  }
+
+  makeWalletPublic(wallet: string) {
+    return this.fetcher.request<OperationResponse<"make_wallet_public">>(
+      "DELETE",
+      `/api/v2/accounts/wallets/${segment(wallet)}/private`,
+    )
   }
 }

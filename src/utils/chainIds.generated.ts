@@ -13,6 +13,7 @@ export const CHAIN_ID_MAP: Record<string, string> = {
   monad: "143",
   shape: "360",
   flow: "747",
+  stablechain: "988",
   hyperevm: "999",
   sei: "1329",
   soneium: "1868",

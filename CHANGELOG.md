@@ -1,5 +1,33 @@
 # @opensea/sdk
 
+## 11.7.1
+
+### Patch Changes
+
+- 0031eed: Add SDK and CLI support for wallet visibility and agent profile relationships
+
+  - `@opensea/sdk`: add `WalletAuthAPI.makeWalletPrivate`, `WalletAuthAPI.makeWalletPublic`, and `WalletAuthAPI.getAgentProfileRelationships`.
+  - `@opensea/sdk`: export `WalletVisibilityResponse`, `AgentProfileRelationshipsResponse`, `SvmInstructionAccountResponse`, `SvmInstructionResponse`, and `SvmTransactionDetailsResponse` types.
+  - `@opensea/cli`: add `accounts make-private`, `accounts make-public`, and `accounts agent-relationships` commands.
+  - `@opensea/cli`: export the new wallet visibility, agent relationship, and SVM transaction detail types.
+
+- 7d2dbef: Sync OpenAPI spec: add `stablechain` to `ChainIdentifier`, add `Chain.StableChain` (chain id 988) to the SDK and generated chain maps
+- f67fbc6: Fix wallet-auth writes corrupting camelCase request bodies
+
+  `Fetcher.request` snake_cases every body by default, but four wallet-auth endpoints declare **camelCase** properties in their OpenAPI schemas. Those calls were being sent with keys the server doesn't recognise:
+
+  - `setProfileNftPfp` — `contractAddress` and `tokenId` are required, so the call **always failed validation**. It could never succeed.
+  - `createProfileImageUpload` — `imageType` and `contentType` are required, so this **always failed** too.
+  - `updateProfileSettings` — all fields optional, so the request returned 200 while silently discarding `displayName`, `externalUrl`, `profileImageToken`, and `bannerImageToken`. Only `bio` worked, because it's a single word with no casing to mangle.
+  - `cancelOrder` — `offererSignature` was silently dropped, turning a signed cancel into an unsigned one.
+
+  All four now send the body verbatim via `snakeizeBody: false`, the same opt-out the Seaport order and offer helpers already use. Endpoints whose wire format really is snake_case are unchanged.
+
+- Updated dependencies [7d2dbef]
+- Updated dependencies [8b7ddd2]
+- Updated dependencies [0031eed]
+  - @opensea/api-types@0.8.7
+
 ## 11.7.0
 
 ### Minor Changes

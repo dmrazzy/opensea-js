@@ -1,5 +1,6 @@
 import type {
   AccountSearchResponse as ApiAccountSearchResponse,
+  AgentProfileRelationshipsResponse as ApiAgentProfileRelationshipsResponse,
   BuildOfferResponse as ApiBuildOfferResponse,
   CancelResponse as ApiCancelResponse,
   CollectionSearchResponse as ApiCollectionSearchResponse,
@@ -13,6 +14,9 @@ import type {
   Price as ApiPrice,
   SearchResponse as ApiSearchResponse,
   SearchResultResponse as ApiSearchResultResponse,
+  SvmInstructionAccountResponse as ApiSvmInstructionAccountResponse,
+  SvmInstructionResponse as ApiSvmInstructionResponse,
+  SvmTransactionDetailsResponse as ApiSvmTransactionDetailsResponse,
   SwapExecuteRequest as ApiSwapExecuteRequest,
   SwapExecuteResponse as ApiSwapExecuteResponse,
   SwapQuoteResponse as ApiSwapQuoteResponse,
@@ -24,6 +28,7 @@ import type {
   Trait as ApiTrait,
   TransactionReceiptRequest as ApiTransactionReceiptRequest,
   TransactionReceiptResponse as ApiTransactionReceiptResponse,
+  WalletVisibilityResponse as ApiWalletVisibilityResponse,
   AssetMetadataResponse,
   ChainResponse,
   ContractResponse,
@@ -321,6 +326,39 @@ export type SwapExecuteRequest = Camelize<ApiSwapExecuteRequest>
  * @category API Response Types
  */
 export type SwapExecuteResponse = Camelize<ApiSwapExecuteResponse>
+
+/**
+ * SVM instruction account.
+ * @category API Response Types
+ */
+export type SvmInstructionAccountResponse =
+  Camelize<ApiSvmInstructionAccountResponse>
+
+/**
+ * SVM instruction.
+ * @category API Response Types
+ */
+export type SvmInstructionResponse = Camelize<ApiSvmInstructionResponse>
+
+/**
+ * SVM transaction details.
+ * @category API Response Types
+ */
+export type SvmTransactionDetailsResponse =
+  Camelize<ApiSvmTransactionDetailsResponse>
+
+/**
+ * Wallet visibility state after making a wallet private or public.
+ * @category API Response Types
+ */
+export type WalletVisibilityResponse = Camelize<ApiWalletVisibilityResponse>
+
+/**
+ * Public agent profile relationships for an account.
+ * @category API Response Types
+ */
+export type AgentProfileRelationshipsResponse =
+  Camelize<ApiAgentProfileRelationshipsResponse>
 
 /**
  * Request body for fetching a transaction receipt.

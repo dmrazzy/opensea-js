@@ -33,6 +33,7 @@ import { SearchAPI } from "./search"
 import { TokensAPI } from "./tokens"
 import { TransactionsAPI } from "./transactions"
 import {
+  type AgentProfileRelationshipsResponse,
   type BatchCollectionsRequest,
   type BatchNftsRequest,
   type BatchTokensRequest,
@@ -1029,6 +1030,18 @@ export class OpenSeaAPI {
     identifier: string,
   ): Promise<ResolveAccountResponse> {
     return this.accountsAPI.resolveAccount(identifier)
+  }
+
+  /**
+   * Get the public agent ownership relationships for a profile.
+   * This is a public read and does not require wallet authentication.
+   * @param addressOrUsername An ENS name, OpenSea username, or wallet address.
+   * @returns The {@link AgentProfileRelationshipsResponse} returned by the API.
+   */
+  public async getAgentProfileRelationships(
+    addressOrUsername: string,
+  ): Promise<AgentProfileRelationshipsResponse> {
+    return this.accountsAPI.getAgentProfileRelationships(addressOrUsername)
   }
 
   /**

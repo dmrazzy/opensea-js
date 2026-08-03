@@ -168,6 +168,7 @@ export enum Chain {
   AnimeChain = "animechain",
   Ink = "ink",
   Robinhood = "robinhood",
+  StableChain = "stablechain",
 }
 
 // Compile-time check: every ChainIdentifier from the API spec must be assignable to Chain.

@@ -173,6 +173,16 @@ describe("WalletAuthAPI", () => {
         "/api/v2/accounts/wallets/agent%2Fwallet/agent",
         () => api.removeWalletAgentDesignation("agent/wallet"),
       ],
+      [
+        "PUT",
+        "/api/v2/accounts/wallets/0xabc/private",
+        () => api.makeWalletPrivate("0xabc"),
+      ],
+      [
+        "DELETE",
+        "/api/v2/accounts/wallets/0xabc/private",
+        () => api.makeWalletPublic("0xabc"),
+      ],
     ]
 
     for (const [method, path, run] of cases) {
@@ -195,9 +205,12 @@ describe("WalletAuthAPI", () => {
   })
 
   it("forwards the request body and returns the response for nft pfp helpers", async () => {
+    // camelCase, matching SetNftPfpRequest in the OpenAPI spec. This fixture
+    // used to be snake_case, which is why the body-casing bug went unnoticed —
+    // see walletAuthCasing.spec.ts.
     const settings = {
-      contract_address: "0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d",
-      token_id: "1",
+      contractAddress: "0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d",
+      tokenId: "1",
       chain: "ethereum",
     }
     request.mockResolvedValueOnce(settings)
@@ -208,6 +221,8 @@ describe("WalletAuthAPI", () => {
       "POST",
       "/api/v2/profile/nft-pfp",
       settings,
+      undefined,
+      { snakeizeBody: false },
     )
 
     request.mockResolvedValueOnce({ success: true })

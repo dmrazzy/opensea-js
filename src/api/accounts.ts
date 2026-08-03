@@ -2,6 +2,7 @@ import type { Chain, OpenSeaAccount, OpenSeaPaymentToken } from "../types"
 import {
   getAccountPath,
   getAccountTokensPath,
+  getAgentProfileRelationshipsPath,
   getPaymentTokenPath,
   getPortfolioHistoryPath,
   getPortfolioStatsPath,
@@ -17,6 +18,7 @@ import {
 } from "./apiPaths"
 import type { Fetcher } from "./fetcher"
 import type {
+  AgentProfileRelationshipsResponse,
   ClosedPositionsResponse,
   GetAccountTokensArgs,
   GetAccountTokensResponse,
@@ -76,6 +78,18 @@ export class AccountsAPI {
       ...response,
       socialMediaAccounts: response.socialMediaAccounts ?? [],
     }
+  }
+
+  /**
+   * Get the public agent ownership relationships for a profile. This is a public
+   * read and does not require wallet authentication.
+   */
+  async getAgentProfileRelationships(
+    addressOrUsername: string,
+  ): Promise<AgentProfileRelationshipsResponse> {
+    return this.fetcher.get<AgentProfileRelationshipsResponse>(
+      getAgentProfileRelationshipsPath(encodeURIComponent(addressOrUsername)),
+    )
   }
 
   /**

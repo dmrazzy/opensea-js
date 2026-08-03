@@ -31,8 +31,13 @@ import {
 
 describe("Utils: chain", () => {
   describe("chain helper exhaustiveness", () => {
-    // No Seaport deployment — payment-token helpers throw by design
-    const SEAPORT_UNSUPPORTED_CHAINS = [Chain.Solana, Chain.Hyperliquid]
+    // Payment-token helpers throw by design (no Seaport deployment, or tokens
+    // not yet mapped in the SDK)
+    const SEAPORT_UNSUPPORTED_CHAINS = [
+      Chain.Solana,
+      Chain.Hyperliquid,
+      Chain.StableChain,
+    ]
     // Non-EVM chains with no numeric chain id
     const NO_CHAIN_ID_CHAINS = [Chain.Solana, Chain.Hyperliquid]
     const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/

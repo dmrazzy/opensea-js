@@ -58,6 +58,10 @@ export const getAccountPath = (address: string) => {
   return `${API_V2_PREFIX}/accounts/${address}`
 }
 
+export const getAgentProfileRelationshipsPath = (addressOrUsername: string) => {
+  return `${API_V2_PREFIX}/accounts/${addressOrUsername}/agent-relationships`
+}
+
 export const getBuildOfferPath = () => {
   return `${API_V2_PREFIX}/offers/build`
 }
