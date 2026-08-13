@@ -400,11 +400,20 @@ export class WalletAuthAPI {
     )
   }
 
+  /**
+   * `LinkWalletSiwxRequest` is camelCase on the wire. `chainArch` is required, so
+   * snake-casing it made every call fail validation, and the nested SIWX `message`
+   * keeps camelCase keys the server uses to rebuild the message the wallet signed.
+   * Sent verbatim, matching the raw fetch in `auth/siwx.ts` that posts the same
+   * operation.
+   */
   linkWallet(body: WalletAuthRequest<"link_wallet_with_siwx">) {
     return this.fetcher.request<OperationResponse<"link_wallet_with_siwx">>(
       "POST",
       "/api/v2/accounts/wallets/siwx",
       body,
+      undefined,
+      { snakeizeBody: false },
     )
   }
 

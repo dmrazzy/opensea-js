@@ -20,7 +20,7 @@ Get started by getting an API key and instantiating your own OpenSea SDK instanc
 
 ### Get an API key
 
-**For quick experimentation** — request a free-tier key in code, no signup needed. The returned key is valid for 30 days and the endpoint is rate-limited to 3 keys per hour per IP:
+**For quick experimentation** — request a free-tier key in code, no signup needed. The returned key is valid for 7 days.
 
 ```typescript
 import { OpenSeaSDK } from "@opensea/sdk";

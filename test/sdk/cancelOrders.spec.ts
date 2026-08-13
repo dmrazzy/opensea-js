@@ -6,8 +6,43 @@ import { ALTERNATE_SEAPORT_V1_6_ADDRESS } from "../../src/constants"
 import type { OrderV2 } from "../../src/orders/types"
 import { DEFAULT_SEAPORT_CONTRACT_ADDRESS } from "../../src/orders/utils"
 import { CancellationManager } from "../../src/sdk/cancellation"
+import { EventType } from "../../src/types"
 import { createMockContext } from "../fixtures/context"
 import { sdk } from "../utils/sdk"
+
+const buildMockOrderV2 = (): OrderV2 =>
+  ({
+    orderHash: "0x123",
+    chain: "ethereum",
+    type: "basic",
+    price: {
+      current: {
+        currency: "0x0000000000000000000000000000000000000000",
+        decimals: 18,
+        value: "1000000000000000000",
+      },
+    },
+    protocolAddress: DEFAULT_SEAPORT_CONTRACT_ADDRESS,
+    protocolData: {
+      parameters: {
+        offerer: "0x0000000000000000000000000000000000000001",
+        zone: "0x0000000000000000000000000000000000000000",
+        offer: [],
+        consideration: [],
+        orderType: 0,
+        startTime: "0",
+        endTime: "0",
+        zoneHash:
+          "0x0000000000000000000000000000000000000000000000000000000000000000",
+        salt: "0",
+        conduitKey:
+          "0x0000000000000000000000000000000000000000000000000000000000000000",
+        totalOriginalConsiderationItems: 0,
+        counter: 0,
+      },
+      signature: "0x",
+    },
+  }) as unknown as OrderV2
 
 describe("SDK: cancelOrders", () => {
   const wallet = ethers.Wallet.createRandom()
@@ -415,5 +450,52 @@ describe("SDK: cancelOrder (singular)", () => {
           msg.includes("Must be authenticated"),
       )
     }
+  })
+
+  test("Should return the transaction hash when cancelling an OrderV2", async () => {
+    const transact = vi.fn().mockResolvedValue({ hash: "0xcancelhash" })
+    const mockSeaport = {
+      cancelOrders: vi.fn().mockReturnValue({ transact }),
+    }
+    const confirmTransaction = vi.fn().mockResolvedValue(undefined)
+    const cancellationManager = new CancellationManager(
+      createMockContext({ seaport: mockSeaport, confirmTransaction }),
+    )
+
+    const transactionHash = await cancellationManager.cancelOrder({
+      order: buildMockOrderV2(),
+      accountAddress,
+    })
+
+    expect(transactionHash).toBe("0xcancelhash")
+    expect(confirmTransaction).toHaveBeenCalledWith(
+      "0xcancelhash",
+      EventType.CancelOrder,
+      "Cancelling order",
+    )
+  })
+
+  test("Should return the transaction hash when cancelling by orderHash", async () => {
+    const transact = vi.fn().mockResolvedValue({ hash: "0xfetchedhash" })
+    const mockSeaport = {
+      cancelOrders: vi.fn().mockReturnValue({ transact }),
+    }
+    const getOrderByHash = vi.fn().mockResolvedValue(buildMockOrderV2())
+    const cancellationManager = new CancellationManager(
+      createMockContext({ seaport: mockSeaport, api: { getOrderByHash } }),
+    )
+
+    const transactionHash = await cancellationManager.cancelOrder({
+      orderHash: "0x123",
+      accountAddress,
+      protocolAddress: DEFAULT_SEAPORT_CONTRACT_ADDRESS,
+    })
+
+    expect(transactionHash).toBe("0xfetchedhash")
+    expect(getOrderByHash).toHaveBeenCalledWith(
+      "0x123",
+      DEFAULT_SEAPORT_CONTRACT_ADDRESS,
+      "ethereum",
+    )
   })
 })

@@ -1,4 +1,4 @@
-import { ZeroAddress } from "ethers"
+import { ZeroAddress, ZeroHash } from "ethers"
 import { describe, expect, test, vi } from "vitest"
 import { OrdersManager } from "../../src/sdk/orders"
 import { Chain, OrderSide } from "../../src/types"
@@ -50,13 +50,62 @@ describe("SDK: OrdersManager", () => {
     signature: "0xSignature",
   }
 
+  /** The order seaport-js builds, now exposed directly on the create action. */
+  const mockOrderComponents = {
+    offerer: "0x1111111111111111111111111111111111111111",
+    zone: ZeroAddress,
+    offer: [
+      {
+        itemType: 2,
+        token: "0x2222222222222222222222222222222222222222",
+        identifierOrCriteria: "1234",
+        startAmount: "1",
+        endAmount: "1",
+      },
+    ],
+    consideration: [
+      {
+        itemType: 1,
+        token: "0x3333333333333333333333333333333333333333",
+        identifierOrCriteria: "0",
+        startAmount: "975000000000000000",
+        endAmount: "975000000000000000",
+        recipient: "0x1111111111111111111111111111111111111111",
+      },
+    ],
+    orderType: 2,
+    startTime: "0",
+    endTime: "1000000000000",
+    zoneHash: ZeroHash,
+    salt: "0x000000000000000000000000000000000000000000000000f1a2b3c400003039",
+    conduitKey: ZeroHash,
+    counter: "7",
+    totalOriginalConsiderationItems: 1,
+  }
+
+  let mockExecuteApprovals: ReturnType<typeof vi.fn>
+  let mockCreateOrderAction: ReturnType<typeof vi.fn>
+
   beforeEach(() => {
+    mockExecuteApprovals = vi.fn().mockResolvedValue(undefined)
+    mockCreateOrderAction = vi.fn().mockResolvedValue(mockOrder)
+
     // Mock Seaport
     mockSeaport = {
       contract: {
         target: "0xSeaportAddress",
       },
       createOrder: vi.fn().mockResolvedValue({
+        actions: [
+          { type: "approval" },
+          {
+            type: "create",
+            orderComponents: mockOrderComponents,
+            getMessageToSign: vi.fn(),
+            createOrder: mockCreateOrderAction,
+          },
+        ],
+        executeApprovals: mockExecuteApprovals,
         executeAllActions: vi.fn().mockResolvedValue(mockOrder),
       }),
     }
@@ -685,7 +734,7 @@ describe("SDK: OrdersManager", () => {
       expect(mockAPI.getNFT).toHaveBeenCalledTimes(1)
       expect(mockAPI.getCollection).toHaveBeenCalledTimes(1)
       expect(mockSeaport.createOrder).toHaveBeenCalledTimes(1)
-      expect(result).toEqual(mockOrder.parameters)
+      expect(result).toEqual(mockOrderComponents)
     })
 
     test("builds offer components with custom parameters", async () => {
@@ -700,7 +749,7 @@ describe("SDK: OrdersManager", () => {
         zone: "0xZone",
       })
 
-      expect(result).toEqual(mockOrder.parameters)
+      expect(result).toEqual(mockOrderComponents)
       expect(mockSeaport.createOrder).toHaveBeenCalledTimes(1)
     })
 
@@ -713,6 +762,17 @@ describe("SDK: OrdersManager", () => {
 
       expect(mockAPI.postOffer).not.toHaveBeenCalled()
       expect(mockAPI.postListing).not.toHaveBeenCalled()
+    })
+
+    test("runs approvals but does not request a signature", async () => {
+      await ordersManager.buildOfferOrderComponents({
+        asset: { tokenAddress: "0xNFTContract", tokenId: "1234" },
+        accountAddress: "0xBuyer",
+        amount: "1000000000000000000",
+      })
+
+      expect(mockExecuteApprovals).toHaveBeenCalledTimes(1)
+      expect(mockCreateOrderAction).not.toHaveBeenCalled()
     })
   })
 
@@ -728,7 +788,7 @@ describe("SDK: OrdersManager", () => {
       expect(mockAPI.getNFT).toHaveBeenCalledTimes(1)
       expect(mockAPI.getCollection).toHaveBeenCalledTimes(1)
       expect(mockSeaport.createOrder).toHaveBeenCalledTimes(1)
-      expect(result).toEqual(mockOrder.parameters)
+      expect(result).toEqual(mockOrderComponents)
     })
 
     test("builds listing components with all parameters", async () => {
@@ -749,7 +809,7 @@ describe("SDK: OrdersManager", () => {
         zone: "0xZone",
       })
 
-      expect(result).toEqual(mockOrder.parameters)
+      expect(result).toEqual(mockOrderComponents)
       expect(mockSeaport.createOrder).toHaveBeenCalledTimes(1)
     })
 
@@ -762,6 +822,17 @@ describe("SDK: OrdersManager", () => {
 
       expect(mockAPI.postOffer).not.toHaveBeenCalled()
       expect(mockAPI.postListing).not.toHaveBeenCalled()
+    })
+
+    test("runs approvals but does not request a signature", async () => {
+      await ordersManager.buildListingOrderComponents({
+        asset: { tokenAddress: "0xNFTContract", tokenId: "1234" },
+        accountAddress: "0xSeller",
+        amount: "1000000000000000000",
+      })
+
+      expect(mockExecuteApprovals).toHaveBeenCalledTimes(1)
+      expect(mockCreateOrderAction).not.toHaveBeenCalled()
     })
   })
 

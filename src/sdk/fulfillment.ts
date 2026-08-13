@@ -1,6 +1,14 @@
 import { SeaportABI } from "@opensea/seaport-js/lib/abi/Seaport"
 import type { OrderComponents } from "@opensea/seaport-js/lib/types"
+import { CONDUIT_CONTROLLER_ABI, ERC20_ABI } from "../abi/abis"
 import type { Listing, Offer, Order } from "../api/types"
+import { CONDUIT_CONTROLLER_ADDRESS } from "../constants"
+import {
+  getErc20Payment,
+  getFulfillerConduitKey,
+  isZeroConduitKey,
+  toBigInt,
+} from "../orders/erc20Fulfillment"
 import {
   computePrivateListingValue,
   constructPrivateListingCounterOrder,
@@ -15,6 +23,7 @@ import {
   OrderSide,
 } from "../types"
 import {
+  getDefaultConduit,
   getSeaportInstance,
   hasErrorCode,
   requireValidProtocol,
@@ -221,6 +230,13 @@ export class FulfillmentManager {
       params = Object.values(inputData)
     }
 
+    // ERC20-priced listings send no native value; Seaport pulls the payment from
+    // the buyer instead, which reverts with a bare "execution reverted" when the
+    // spender has not been approved. Catch that before spending gas.
+    await this.requireErc20PaymentIsSpendable(inputData, transaction.to, {
+      accountAddress,
+    })
+
     const encodedData = this.context.contractCaller.encodeFunctionData({
       abi: SeaportABI,
       functionName,
@@ -245,6 +261,137 @@ export class FulfillmentManager {
       "Fulfilling order",
     )
     return tx.hash
+  }
+
+  /**
+   * Throw an actionable error when the buyer cannot pay for an ERC20-priced
+   * listing, because they hold too little of the payment token or have not
+   * approved the address Seaport pulls it from.
+   *
+   * The check is skipped for native-priced listings, for offer fulfillments, and
+   * for any response shape or RPC read it cannot interpret, so it never blocks a
+   * purchase that would otherwise have succeeded.
+   */
+  private async requireErc20PaymentIsSpendable(
+    inputData: unknown,
+    seaportAddress: string,
+    { accountAddress }: { accountAddress: string },
+  ): Promise<void> {
+    const payment = getErc20Payment(inputData)
+    if (!payment) {
+      return
+    }
+
+    const spender = await this.resolveFulfillerSpender(
+      getFulfillerConduitKey(inputData),
+      seaportAddress,
+    )
+    if (!spender) {
+      return
+    }
+
+    const spendState = await this.readErc20SpendState(
+      payment.token,
+      accountAddress,
+      spender,
+    )
+    if (!spendState) {
+      return
+    }
+
+    const amounts = `have ${spendState.balance}, need ${payment.amount} (base units of the payment token)`
+    if (spendState.balance < payment.amount) {
+      throw new Error(
+        `Insufficient ${payment.token} balance to fulfill this listing: ${amounts}. ` +
+          `Fund ${accountAddress} with the payment token before fulfilling.`,
+      )
+    }
+    if (spendState.allowance < payment.amount) {
+      throw new Error(
+        `Payment token ${payment.token} is not approved for this listing: allowance for ` +
+          `${spender} is ${spendState.allowance}, need ${payment.amount} (base units of the ` +
+          `payment token). ERC20-priced listings send no native value, so Seaport pulls the ` +
+          `payment through this spender. Send approve(${spender}, ${payment.amount}) from ` +
+          `${accountAddress} first.`,
+      )
+    }
+  }
+
+  /**
+   * Resolve the address that will pull the payment token: Seaport itself when the
+   * fulfiller conduit key is `bytes32(0)`, otherwise the conduit registered for
+   * that key. Returns null when the key cannot be resolved.
+   */
+  private async resolveFulfillerSpender(
+    conduitKey: string | null,
+    seaportAddress: string,
+  ): Promise<string | null> {
+    if (!conduitKey || isZeroConduitKey(conduitKey)) {
+      return seaportAddress
+    }
+
+    const defaultConduit = getDefaultConduit(this.context.chain)
+    if (conduitKey.toLowerCase() === defaultConduit.key.toLowerCase()) {
+      return defaultConduit.address
+    }
+
+    try {
+      const result = await this.context.contractCaller.readContract({
+        address: CONDUIT_CONTROLLER_ADDRESS,
+        abi: CONDUIT_CONTROLLER_ABI,
+        functionName: "getConduit",
+        args: [conduitKey],
+      })
+      if (
+        !Array.isArray(result) ||
+        typeof result[0] !== "string" ||
+        result[1] !== true
+      ) {
+        return null
+      }
+      return result[0]
+    } catch (error) {
+      this.context.logger(
+        `Could not resolve conduit for key ${conduitKey}, skipping the ERC20 approval check: ${error}`,
+      )
+      return null
+    }
+  }
+
+  /** Read the buyer's payment-token balance and allowance for a spender. */
+  private async readErc20SpendState(
+    token: string,
+    owner: string,
+    spender: string,
+  ): Promise<{ balance: bigint; allowance: bigint } | null> {
+    const contractCaller = this.context.contractCaller
+    try {
+      const [rawBalance, rawAllowance] = await Promise.all([
+        contractCaller.readContract({
+          address: token,
+          abi: ERC20_ABI,
+          functionName: "balanceOf",
+          args: [owner],
+        }),
+        contractCaller.readContract({
+          address: token,
+          abi: ERC20_ABI,
+          functionName: "allowance",
+          args: [owner, spender],
+        }),
+      ])
+      const balance = toBigInt(rawBalance)
+      const allowance = toBigInt(rawAllowance)
+      if (balance === null || allowance === null) {
+        return null
+      }
+      return { balance, allowance }
+    } catch (error) {
+      this.context.logger(
+        `Could not read ${token} balance or allowance, skipping the ERC20 approval check: ${error}`,
+      )
+      return null
+    }
   }
 
   /**
@@ -324,22 +471,35 @@ export class FulfillmentManager {
 
   /**
    * Validates an order onchain using Seaport's validate() method.
+   *
+   * The order is left with an empty signature: Seaport takes the transaction
+   * sender as proof the offerer approved it. This does not post the order to
+   * OpenSea. It becomes discoverable only once OpenSea ingests the resulting
+   * `OrderValidated` event.
+   *
+   * @param orderComponents The order to validate
+   * @param accountAddress Address sending the validate transaction
+   * @param protocolAddress Seaport protocol address the components were built
+   * for. Defaults to {@link DEFAULT_SEAPORT_CONTRACT_ADDRESS}.
+   * @returns Transaction hash of the validate transaction
+   *
+   * @throws Error if the accountAddress is not available through wallet or provider.
+   * @throws Error if the protocol address is not supported by OpenSea. See {@link isValidProtocol}.
    */
   async validateOrderOnchain(
     orderComponents: OrderComponents,
     accountAddress: string,
+    protocolAddress: string = DEFAULT_SEAPORT_CONTRACT_ADDRESS,
   ) {
     await this.context.requireAccountIsAvailable(accountAddress)
+    requireValidProtocol(protocolAddress)
 
     this.context.dispatch(EventType.ApproveOrder, {
       orderV2: { protocolData: orderComponents } as unknown as OrderV2,
       accountAddress,
     })
 
-    const seaport = getSeaportInstance(
-      DEFAULT_SEAPORT_CONTRACT_ADDRESS,
-      this.context.seaport,
-    )
+    const seaport = getSeaportInstance(protocolAddress, this.context.seaport)
     const transaction = await seaport
       .validate(
         [{ parameters: orderComponents, signature: "0x" }],
@@ -357,7 +517,18 @@ export class FulfillmentManager {
   }
 
   /**
-   * Create and validate a listing onchain.
+   * Create a listing and validate it onchain, instead of signing it offchain.
+   *
+   * Runs any token approvals the listing needs, then sends one `validate()`
+   * transaction. The wallet is never asked for an EIP-712 signature, so this
+   * works for contract accounts that cannot produce one.
+   *
+   * Unlike {@link OrdersManager.createListing}, this does not post the listing
+   * to OpenSea. It becomes discoverable only once OpenSea ingests the
+   * `OrderValidated` event, so the returned hash is a transaction hash, not an
+   * order hash.
+   *
+   * @returns Transaction hash of the validate transaction
    */
   async createListingAndValidateOnchain({
     asset,
@@ -403,7 +574,18 @@ export class FulfillmentManager {
   }
 
   /**
-   * Create and validate an offer onchain.
+   * Create an offer and validate it onchain, instead of signing it offchain.
+   *
+   * Runs any token approvals the offer needs, then sends one `validate()`
+   * transaction. The wallet is never asked for an EIP-712 signature, so this
+   * works for contract accounts that cannot produce one.
+   *
+   * Unlike {@link OrdersManager.createOffer}, this does not post the offer to
+   * OpenSea. It becomes discoverable only once OpenSea ingests the
+   * `OrderValidated` event, so the returned hash is a transaction hash, not an
+   * order hash.
+   *
+   * @returns Transaction hash of the validate transaction
    */
   async createOfferAndValidateOnchain({
     asset,

@@ -1591,9 +1591,8 @@ export class OpenSeaAPI {
 
   /**
    * Request a free-tier OpenSea API key without authentication. The returned
-   * key is valid for 30 days and can be passed into the {@link OpenSeaAPI} or
-   * {@link BaseOpenSeaSDK} constructors as `apiKey`. Rate limited to 3 keys
-   * per hour per IP.
+   * key is valid for 7 days and can be passed into the {@link OpenSeaAPI} or
+   * {@link BaseOpenSeaSDK} constructors as `apiKey`.
    *
    * @example
    * ```ts

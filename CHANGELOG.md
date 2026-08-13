@@ -1,5 +1,28 @@
 # @opensea/sdk
 
+## 11.8.0
+
+### Minor Changes
+
+- 59f9799: Check the payment token before fulfilling an ERC20-denominated listing. `fulfillOrder` now reads the buyer's balance and their allowance for the address Seaport pulls the payment through (the conduit registered for the fulfiller conduit key, or Seaport itself when that key is `bytes32(0)`), and throws an error naming the spender and the exact `approve` amount instead of letting the transaction revert with a bare "execution reverted". Native-priced listings and offer fulfillments are unaffected, and an unreadable response shape or a failed RPC read skips the check rather than blocking the purchase.
+
+### Patch Changes
+
+- c5e2906: `createListingAndValidateOnchain()`, `createOfferAndValidateOnchain()`, `buildListingOrderComponents()` and `buildOfferOrderComponents()` no longer request an EIP-712 signature. They built the order by running seaport-js `executeAllActions()`, which signs, and then discarded the signature before validating the order onchain. Callers got a wallet signature prompt for nothing, and contract accounts that cannot produce an offchain signature could not use the onchain path at all, which is the case it exists for. Token approvals still run, and each is confirmed before the order is validated.
+
+  `validateOrderOnchain()` takes an optional third `protocolAddress` argument and rejects a protocol OpenSea does not support, matching `approveOrder()` and the fulfillment methods.
+
+  Requires `@opensea/seaport-js` 4.2.0, which adds the `executeApprovals()` and `orderComponents` APIs this relies on.
+
+## 11.7.3
+
+### Patch Changes
+
+- 4dd7c67: `cancelOrder()` now returns the cancellation transaction hash, matching `cancelOrders()`. The hash was computed internally and discarded, so callers had no way to track a single-order cancellation. Thanks to @Sertug17 for the fix (opensea-js#1982).
+- 280acf2: Fix `WalletAuthAPI.linkWallet()` sending a snake_cased request body. `link_wallet_with_siwx` is camelCase on the wire and `chainArch` is required, so the default conversion renamed it to `chain_arch` and the call failed validation every time. The nested SIWX `message` keys were being renamed too, which the server needs intact to rebuild the message the wallet signed. Thanks to @crazywriter1 for the fix (opensea-js#1988).
+- Updated dependencies [d88963f]
+  - @opensea/api-types@0.8.8
+
 ## 11.7.2
 
 ### Patch Changes

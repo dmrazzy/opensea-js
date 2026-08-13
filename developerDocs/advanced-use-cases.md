@@ -84,9 +84,11 @@ Use `cancelOrder()` to cancel a single order. This method accepts either:
 - A full `OrderV2` object from the API
 - Just an order hash (automatically fetches full order data)
 
+Both `cancelOrder()` and `cancelOrders()` return the cancellation transaction hash.
+
 ```typescript
 // Cancel using order hash (automatically fetches from API)
-await openseaSDK.cancelOrder({
+const transactionHash = await openseaSDK.cancelOrder({
   orderHash: "0x123...",
   accountAddress: "0x...",
   protocolAddress: "0x00000000000000adc04c56bf30ac9d3c0aaf14dc", // Seaport address

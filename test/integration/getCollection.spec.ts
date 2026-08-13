@@ -4,6 +4,15 @@ import { Chain, SafelistStatus } from "../../src/types"
 import { getSdkForChain } from "../utils/setupIntegration"
 import { processInBatches } from "../utils/utils"
 
+/**
+ * The all-chain sweep walks every supported chain, so it is slow and exposed to
+ * any one chain's API being briefly unavailable. It stays off for ordinary
+ * integration runs and is opted into for scheduled or manual multi-chain
+ * validation, rather than being permanently unreachable behind `test.skip`.
+ */
+const allChainCollectionsTest =
+  process.env.OPENSEA_RUN_ALL_CHAIN_COLLECTIONS === "true" ? test : test.skip
+
 describe("SDK: getCollection", () => {
   test("Get Verified Collection", async () => {
     const slug = "cool-cats-nft"
@@ -69,7 +78,7 @@ describe("SDK: getCollection", () => {
     expect(stats.intervals, "Intervals should exist").toBeTruthy()
   })
 
-  test.skip("Get Collections for all chains", async () => {
+  allChainCollectionsTest("Get Collections for all chains", async () => {
     // Excluding Solana (no NFT collections)
     const chains = Object.values(Chain).filter(chain => chain !== Chain.Solana)
     const sdk = getSdkForChain(Chain.Mainnet)

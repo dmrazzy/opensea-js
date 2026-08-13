@@ -111,7 +111,7 @@ export class BaseOpenSeaSDK {
   /**
    * Request a free-tier OpenSea API key without authentication. The returned
    * key can be passed as `apiKey` into the SDK constructor to bootstrap usage.
-   * Rate limited to 3 keys per hour per IP; keys expire after 30 days.
+   * Keys expire after 7 days.
    *
    * @example
    * ```ts
@@ -412,18 +412,26 @@ export class BaseOpenSeaSDK {
     return this._fulfillmentManager.approveOrder(order, domain)
   }
 
-  /** Validates an order onchain using Seaport's validate() method. */
+  /**
+   * Validates an order onchain using Seaport's validate() method, approving it
+   * without an offchain signature. Does not post the order to OpenSea.
+   */
   public async validateOrderOnchain(
     orderComponents: OrderComponents,
     accountAddress: string,
+    protocolAddress?: string,
   ) {
     return this._fulfillmentManager.validateOrderOnchain(
       orderComponents,
       accountAddress,
+      protocolAddress,
     )
   }
 
-  /** Create and validate a listing onchain. */
+  /**
+   * Create a listing and validate it onchain instead of signing it offchain.
+   * Does not post the listing to OpenSea. Returns a transaction hash.
+   */
   public async createListingAndValidateOnchain(options: {
     asset: AssetWithTokenId
     accountAddress: string
@@ -440,7 +448,10 @@ export class BaseOpenSeaSDK {
     return this._fulfillmentManager.createListingAndValidateOnchain(options)
   }
 
-  /** Create and validate an offer onchain. */
+  /**
+   * Create an offer and validate it onchain instead of signing it offchain.
+   * Does not post the offer to OpenSea. Returns a transaction hash.
+   */
   public async createOfferAndValidateOnchain(options: {
     asset: AssetWithTokenId
     accountAddress: string
@@ -478,14 +489,17 @@ export class BaseOpenSeaSDK {
     return this._cancellationManager.cancelOrders(options)
   }
 
-  /** Cancel an order onchain, preventing it from ever being fulfilled. */
+  /**
+   * Cancel an order onchain, preventing it from ever being fulfilled.
+   * @returns Transaction hash of the cancellation.
+   */
   public async cancelOrder(options: {
     order?: OrderV2
     orderHash?: string
     accountAddress: string
     protocolAddress?: string
     domain?: string
-  }) {
+  }): Promise<string> {
     return this._cancellationManager.cancelOrder(options)
   }
 

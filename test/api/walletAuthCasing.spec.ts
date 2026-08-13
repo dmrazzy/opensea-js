@@ -55,10 +55,13 @@ const KNOWN_CAMELCASE_OPERATIONS = [
   "post_criteria_offer_v2",
   "post_listing",
   "post_offer",
-  // Sent by auth/siwx.ts via raw fetch + JSON.stringify, so never snake_cased.
-  "link_wallet_with_siwx",
   // WalletAuthAPI — opted out below, covered by the behavioural tests here.
+  // `link_wallet_with_siwx` has two senders: auth/siwx.ts posts it with a raw
+  // fetch + JSON.stringify, which never snake_cases, and WalletAuthAPI posts it
+  // through Fetcher, which needs the explicit opt-out to put the same bytes on
+  // the wire. Naming only the raw-fetch path here is what hid the second one.
   "cancel_order",
+  "link_wallet_with_siwx",
   "set_profile_nft_pfp",
   "update_profile_settings",
   "upload_profile_image",
@@ -182,6 +185,25 @@ describe("wallet-auth request body casing", () => {
     const call = request.mock.calls[0]
     expect(optionsOf(call)?.snakeizeBody).toBe(false)
     expect(bodyOf(call)).toMatchObject({ offererSignature: "0xsig" })
+  })
+
+  it("sends link_wallet_with_siwx verbatim so chainArch and the signed message survive", async () => {
+    // chainArch is required, so snake-casing it to chain_arch made the call fail
+    // validation every time. The nested message keys are camelCase too, and the
+    // server rebuilds the signed SIWX message from them, so renaming those breaks
+    // signature verification even where the request itself would be accepted.
+    await api.linkWallet({
+      chainArch: "EVM",
+      signature: "0xsig",
+      message: { chainId: "1", issuedAt: "2026-01-01T00:00:00Z" },
+    } as never)
+
+    const call = request.mock.calls[0]
+    expect(optionsOf(call)?.snakeizeBody).toBe(false)
+    expect(bodyOf(call)).toMatchObject({
+      chainArch: "EVM",
+      message: { chainId: "1", issuedAt: "2026-01-01T00:00:00Z" },
+    })
   })
 
   it("leaves snake_case bodies on the default path", async () => {

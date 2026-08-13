@@ -35,7 +35,7 @@ npm install viem
 
 To get started, first get an API key.
 
-**For quick experimentation** — request a free-tier key in code (valid for 30 days, rate-limited to 3 keys per hour per IP):
+**For quick experimentation** — request a free-tier key in code (valid for 7 days):
 
 ```typescript
 import { OpenSeaSDK } from "@opensea/sdk";

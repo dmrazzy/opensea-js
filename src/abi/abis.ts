@@ -234,3 +234,16 @@ export const APPROVE_ABI = [
     outputs: [{ name: "", type: "bool" }],
   },
 ] as const
+
+export const CONDUIT_CONTROLLER_ABI = [
+  {
+    name: "getConduit",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "conduitKey", type: "bytes32" }],
+    outputs: [
+      { name: "conduit", type: "address" },
+      { name: "exists", type: "bool" },
+    ],
+  },
+] as const

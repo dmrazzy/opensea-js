@@ -39,6 +39,14 @@ export const OPENSEA_CONDUIT_ADDRESS_2 =
 export const OPENSEA_SIGNED_ZONE_V2 =
   "0x000056f7000000ece9003ca63978907a00ffd100"
 
+/**
+ * Seaport's ConduitController, deployed at the same address on every chain.
+ * Resolves a conduit key to the conduit address that pulls tokens on Seaport's
+ * behalf, which is the address a buyer approves for an ERC20-priced purchase.
+ */
+export const CONDUIT_CONTROLLER_ADDRESS =
+  "0x00000000f9490004c11cef243f5400493c00ad63"
+
 // =============================================================================
 // Alternate Protocol Constants (shared by Gunzilla, Somnia, etc.)
 // =============================================================================

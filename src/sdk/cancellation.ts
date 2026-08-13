@@ -27,6 +27,7 @@ export class CancellationManager {
    * @param options.accountAddress The account address that will be cancelling the order.
    * @param options.protocolAddress Required when using orderHash. The Seaport protocol address for the order.
    * @param options.domain An optional domain to be hashed and included at the end of fulfillment calldata.  This can be used for onchain order attribution to assist with analytics.
+   * @returns Transaction hash of the cancellation.
    *
    * @throws Error if neither order nor orderHash is provided.
    * @throws Error if the accountAddress is not available through wallet or provider.
@@ -44,7 +45,7 @@ export class CancellationManager {
     accountAddress: string
     protocolAddress?: string
     domain?: string
-  }) {
+  }): Promise<string> {
     // Validate input
     if (!order && !orderHash) {
       throw new Error(
@@ -106,6 +107,8 @@ export class CancellationManager {
       EventType.CancelOrder,
       "Cancelling order",
     )
+
+    return transactionHash
   }
 
   /**

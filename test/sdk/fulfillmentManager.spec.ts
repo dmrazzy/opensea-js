@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from "vitest"
+import { DEFAULT_SEAPORT_CONTRACT_ADDRESS } from "../../src/orders/utils"
 import { FulfillmentManager } from "../../src/sdk/fulfillment"
 import { Chain, EventType } from "../../src/types"
 import { createMockContext } from "../fixtures/context"
@@ -17,6 +18,7 @@ describe("SDK: FulfillmentManager", () => {
   let mockDispatch: ReturnType<typeof vi.fn>
   let mockConfirmTransaction: ReturnType<typeof vi.fn>
   let mockRequireAccountIsAvailable: ReturnType<typeof vi.fn>
+  let mockContext: ReturnType<typeof createMockContext>
   let fulfillmentManager: FulfillmentManager
 
   let mockTransaction: { hash: string; wait: ReturnType<typeof vi.fn> }
@@ -119,7 +121,7 @@ describe("SDK: FulfillmentManager", () => {
     mockRequireAccountIsAvailable = vi.fn().mockResolvedValue(undefined)
 
     // Create SDKContext mock using fixture
-    const mockContext = createMockContext({
+    mockContext = createMockContext({
       chain: Chain.Mainnet,
       api: mockAPI,
       seaport: mockSeaport,
@@ -409,6 +411,223 @@ describe("SDK: FulfillmentManager", () => {
     })
   })
 
+  describe("fulfillOrder with an ERC20-priced listing", () => {
+    // Mainnet's default conduit, which the OpenSea API returns as the fulfiller
+    // conduit key. The buyer approves this address, not Seaport.
+    const CONDUIT_KEY =
+      "0x0000007b02230091a7ed01230072f7006a004d60a8d4e71d599b8104250f0000"
+    const CONDUIT_ADDRESS = "0x1e0049783f008a0085193e00003d00cd54003c71"
+    const USDG = "0x1234567890123456789012345678901234567890"
+    const SELLER = "0xfba662e1a8e91a350702cf3b87d0c2d2fb4ba57f"
+
+    /** Price the mock listing in USDG: 351 to the seller plus a 9 USDG fee. */
+    function priceInErc20({
+      fulfillerConduitKey = CONDUIT_KEY,
+    }: {
+      fulfillerConduitKey?: string
+    } = {}) {
+      mockAPI.generateFulfillmentData.mockResolvedValue({
+        fulfillmentData: {
+          transaction: {
+            to: "0xSeaportAddress",
+            value: "0",
+            function: "fulfillAdvancedOrder(...)",
+            inputData: {
+              advancedOrder: {
+                parameters: {
+                  offerer: SELLER,
+                  consideration: [
+                    {
+                      itemType: 1,
+                      token: USDG,
+                      identifierOrCriteria: "0",
+                      startAmount: "351000000",
+                      endAmount: "351000000",
+                      recipient: SELLER,
+                    },
+                    {
+                      itemType: 1,
+                      token: USDG,
+                      identifierOrCriteria: "0",
+                      startAmount: "9000000",
+                      endAmount: "9000000",
+                      recipient: "0x0000a26b00c1f0df003000390027140000faa719",
+                    },
+                  ],
+                },
+                numerator: 1,
+                denominator: 1,
+                signature: "0x",
+                extraData: "0x",
+              },
+              criteriaResolvers: [],
+              fulfillerConduitKey,
+              recipient: "0xBuyer",
+            },
+          },
+        },
+      })
+    }
+
+    /** Stub balanceOf/allowance, and getConduit for a non-default conduit key. */
+    function stubErc20Reads({
+      balance,
+      allowance,
+    }: {
+      balance: bigint
+      allowance: bigint
+    }) {
+      const readContract = (
+        mockContext.contractCaller as unknown as {
+          readContract: ReturnType<typeof vi.fn>
+        }
+      ).readContract
+      readContract.mockImplementation(
+        async ({ functionName }: { functionName: string }) => {
+          switch (functionName) {
+            case "balanceOf":
+              return balance
+            case "allowance":
+              return allowance
+            case "getConduit":
+              return [CONDUIT_ADDRESS, true]
+            default:
+              throw new Error(`Unexpected read: ${functionName}`)
+          }
+        },
+      )
+      return readContract
+    }
+
+    test("submits when the buyer has balance and allowance to spare", async () => {
+      priceInErc20()
+      stubErc20Reads({ balance: 500000000n, allowance: 360000000n })
+
+      const result = await fulfillmentManager.fulfillOrder({
+        order: mockOrderV2,
+        accountAddress: "0xBuyer",
+      })
+
+      expect(result).toBe("0xFulfillTxHash")
+      expect(mockSigner.sendTransaction).toHaveBeenCalledTimes(1)
+    })
+
+    test("throws before sending when the allowance is short of the total", async () => {
+      priceInErc20()
+      // Covers the seller's 351 but not the 9 USDG fee on top.
+      stubErc20Reads({ balance: 500000000n, allowance: 351000000n })
+
+      await expect(
+        fulfillmentManager.fulfillOrder({
+          order: mockOrderV2,
+          accountAddress: "0xBuyer",
+        }),
+      ).rejects.toThrow(/not approved/)
+      expect(mockSigner.sendTransaction).not.toHaveBeenCalled()
+    })
+
+    test("names the conduit and the amount to approve in the error", async () => {
+      priceInErc20()
+      stubErc20Reads({ balance: 500000000n, allowance: 0n })
+
+      await expect(
+        fulfillmentManager.fulfillOrder({
+          order: mockOrderV2,
+          accountAddress: "0xBuyer",
+        }),
+      ).rejects.toThrow(`approve(${CONDUIT_ADDRESS}, 360000000)`)
+    })
+
+    test("reports insufficient balance ahead of the allowance", async () => {
+      priceInErc20()
+      stubErc20Reads({ balance: 1n, allowance: 0n })
+
+      await expect(
+        fulfillmentManager.fulfillOrder({
+          order: mockOrderV2,
+          accountAddress: "0xBuyer",
+        }),
+      ).rejects.toThrow(/Insufficient/)
+      expect(mockSigner.sendTransaction).not.toHaveBeenCalled()
+    })
+
+    test("checks the allowance against Seaport for a zero conduit key", async () => {
+      priceInErc20({ fulfillerConduitKey: `0x${"0".repeat(64)}` })
+      const readContract = stubErc20Reads({
+        balance: 500000000n,
+        allowance: 0n,
+      })
+
+      await expect(
+        fulfillmentManager.fulfillOrder({
+          order: mockOrderV2,
+          accountAddress: "0xBuyer",
+        }),
+      ).rejects.toThrow("0xSeaportAddress")
+
+      // A zero key means Seaport transfers directly, so no conduit is resolved.
+      expect(
+        readContract.mock.calls.some(
+          ([params]) => params.functionName === "getConduit",
+        ),
+      ).toBe(false)
+    })
+
+    test("resolves an unrecognized conduit key through the ConduitController", async () => {
+      priceInErc20({ fulfillerConduitKey: `0x${"a".repeat(64)}` })
+      const readContract = stubErc20Reads({
+        balance: 500000000n,
+        allowance: 0n,
+      })
+
+      await expect(
+        fulfillmentManager.fulfillOrder({
+          order: mockOrderV2,
+          accountAddress: "0xBuyer",
+        }),
+      ).rejects.toThrow(CONDUIT_ADDRESS)
+
+      expect(
+        readContract.mock.calls.some(
+          ([params]) => params.functionName === "getConduit",
+        ),
+      ).toBe(true)
+    })
+
+    test("submits anyway when the allowance cannot be read", async () => {
+      priceInErc20()
+      const readContract = (
+        mockContext.contractCaller as unknown as {
+          readContract: ReturnType<typeof vi.fn>
+        }
+      ).readContract
+      readContract.mockRejectedValue(new Error("RPC unavailable"))
+
+      const result = await fulfillmentManager.fulfillOrder({
+        order: mockOrderV2,
+        accountAddress: "0xBuyer",
+      })
+
+      // A failed preflight read must never block a purchase that would succeed.
+      expect(result).toBe("0xFulfillTxHash")
+    })
+
+    test("reads nothing onchain for a native-priced listing", async () => {
+      const readContract = (
+        mockContext.contractCaller as unknown as {
+          readContract: ReturnType<typeof vi.fn>
+        }
+      ).readContract
+
+      await fulfillmentManager.fulfillOrder({
+        order: mockOrderV2,
+        accountAddress: "0xBuyer",
+      })
+
+      expect(readContract).not.toHaveBeenCalled()
+    })
+  })
+
   describe("fulfillOrder with remaining_quantity", () => {
     test("defaults to 1 when unitsToFill not specified for Listing", async () => {
       await fulfillmentManager.fulfillOrder({
@@ -662,6 +881,43 @@ describe("SDK: FulfillmentManager", () => {
       } catch (error) {
         expect((error as Error).message).toContain("Account not available")
       }
+    })
+
+    test("defaults to a supported protocol when the argument is omitted", async () => {
+      // Locks in that the default protocolAddress clears requireValidProtocol.
+      // Swapping it for an unsupported address fails here; swapping it for
+      // another supported one is not observable, since getSeaportInstance
+      // returns the SDK's single Seaport instance either way.
+      const result = await fulfillmentManager.validateOrderOnchain(
+        mockOrderComponents,
+        "0xValidator",
+      )
+
+      expect(mockSeaport.validate).toHaveBeenCalledTimes(1)
+      expect(result).toBe("0xTxHash")
+    })
+
+    test("accepts an explicit supported protocol address", async () => {
+      const result = await fulfillmentManager.validateOrderOnchain(
+        mockOrderComponents,
+        "0xValidator",
+        DEFAULT_SEAPORT_CONTRACT_ADDRESS,
+      )
+
+      expect(mockSeaport.validate).toHaveBeenCalledTimes(1)
+      expect(result).toBe("0xTxHash")
+    })
+
+    test("throws for an unsupported protocol address", async () => {
+      await expect(
+        fulfillmentManager.validateOrderOnchain(
+          mockOrderComponents,
+          "0xValidator",
+          "0x0000000000000000000000000000000000000bad",
+        ),
+      ).rejects.toThrow("Unsupported protocol")
+
+      expect(mockSeaport.validate).not.toHaveBeenCalled()
     })
   })
 

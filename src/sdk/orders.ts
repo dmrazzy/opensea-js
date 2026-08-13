@@ -5,6 +5,7 @@ import type {
 } from "@opensea/seaport-js/lib/types"
 import type { CollectionOffer, Listing, NFT, Offer } from "../api/types"
 import { INVERSE_BASIS_POINT, ZERO_ADDRESS } from "../constants"
+import { executeApprovalsAndGetOrderComponents } from "../orders/orderUseCase"
 import type { ProtocolData } from "../orders/types"
 import {
   type Amount,
@@ -143,7 +144,10 @@ export class OrdersManager {
   /**
    * Build listing order without submitting to API
    * @param options Listing parameters
-   * @returns OrderWithCounter ready for API submission or onchain validation
+   * @returns The seaport-js use case. Call `executeAllActions()` to approve and
+   * sign it for API submission, or
+   * {@link executeApprovalsAndGetOrderComponents} to approve it without a
+   * signature for onchain validation.
    */
   private async _buildListingOrder({
     asset,
@@ -212,7 +216,7 @@ export class OrdersManager {
       zone = collection.requiredZone
     }
 
-    const { executeAllActions } = await this.context.seaport.createOrder(
+    return this.context.seaport.createOrder(
       {
         offer: offerAssetItems,
         consideration: considerationFeeItems,
@@ -227,12 +231,15 @@ export class OrdersManager {
       },
       accountAddress,
     )
-
-    return executeAllActions()
   }
 
   /**
-   * Build listing order components without submitting to API
+   * Build listing order components without submitting to API.
+   *
+   * Runs any token approvals the order needs, but does not ask the wallet to
+   * sign: the components are meant for onchain validation, which needs no
+   * offchain signature.
+   *
    * @param options Listing parameters
    * @returns OrderComponents ready for onchain validation
    */
@@ -261,7 +268,7 @@ export class OrdersManager {
     includeOptionalCreatorFees?: boolean
     zone?: string
   }): Promise<OrderComponents> {
-    const order = await this._buildListingOrder({
+    const useCase = await this._buildListingOrder({
       asset,
       accountAddress,
       amount,
@@ -274,7 +281,7 @@ export class OrdersManager {
       includeOptionalCreatorFees,
       zone,
     })
-    return order.parameters
+    return executeApprovalsAndGetOrderComponents(useCase)
   }
 
   /**
@@ -334,7 +341,7 @@ export class OrdersManager {
       zone = collection.requiredZone
     }
 
-    const { executeAllActions } = await this.context.seaport.createOrder(
+    return this.context.seaport.createOrder(
       {
         offer: [
           {
@@ -355,12 +362,15 @@ export class OrdersManager {
       },
       accountAddress,
     )
-
-    return executeAllActions()
   }
 
   /**
-   * Build offer order components without submitting to API
+   * Build offer order components without submitting to API.
+   *
+   * Runs any token approvals the order needs, but does not ask the wallet to
+   * sign: the components are meant for onchain validation, which needs no
+   * offchain signature.
+   *
    * @param options Offer parameters
    * @returns OrderComponents ready for onchain validation
    */
@@ -383,7 +393,7 @@ export class OrdersManager {
     expirationTime?: Amount
     zone?: string
   }): Promise<OrderComponents> {
-    const order = await this._buildOfferOrder({
+    const useCase = await this._buildOfferOrder({
       asset,
       accountAddress,
       amount,
@@ -393,7 +403,7 @@ export class OrdersManager {
       expirationTime,
       zone,
     })
-    return order.parameters
+    return executeApprovalsAndGetOrderComponents(useCase)
   }
 
   /**
@@ -433,7 +443,7 @@ export class OrdersManager {
     expirationTime?: Amount
     zone?: string
   }): Promise<Offer> {
-    const order = await this._buildOfferOrder({
+    const useCase = await this._buildOfferOrder({
       asset,
       accountAddress,
       amount,
@@ -443,6 +453,7 @@ export class OrdersManager {
       expirationTime,
       zone,
     })
+    const order = await useCase.executeAllActions()
 
     return this.context.api.postOffer(
       order,
@@ -495,7 +506,7 @@ export class OrdersManager {
     includeOptionalCreatorFees?: boolean
     zone?: string
   }): Promise<Listing> {
-    const order = await this._buildListingOrder({
+    const useCase = await this._buildListingOrder({
       asset,
       accountAddress,
       amount,
@@ -508,6 +519,7 @@ export class OrdersManager {
       includeOptionalCreatorFees,
       zone,
     })
+    const order = await useCase.executeAllActions()
 
     return this.context.api.postListing(
       order,
