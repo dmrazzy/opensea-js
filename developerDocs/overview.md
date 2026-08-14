@@ -23,7 +23,6 @@ Happy seafaring! ⛵️
 - **[Getting Started Guide](getting-started.md)** - Learn the basics: fetching NFTs, making offers, creating listings, and swapping tokens
 - **[API Reference](api-reference.md)** - Complete reference for all SDK methods
 - **[Advanced Use Cases](advanced-use-cases.md)** - Bulk operations, canceling orders, event listening, and more
-- **[SDK Reference](https://projectopensea.github.io/opensea-js/)** - Auto-generated TypeDoc API documentation
 - **Key v10 Types**: `Amount` (`string | number | bigint`), `OpenSeaSigner`, `OpenSeaProvider`, `ContractCaller`, `OpenSeaWallet`
 - **[FAQ](faq.md)** - Frequently asked questions
 - **[Contributing](contributing.md)** - How to contribute to the SDK

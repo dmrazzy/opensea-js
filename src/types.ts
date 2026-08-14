@@ -328,4 +328,18 @@ export interface RequestOptions {
    * await api.post('/path', body, headers, { signal: controller.signal });
    */
   signal?: AbortSignal
+  /**
+   * Whether to recursively rewrite the response's keys from snake_case to
+   * camelCase. Defaults to `true`.
+   *
+   * Set to `false` only for endpoints whose response keys are data rather than
+   * field names. `getTraits` returns objects keyed by collection-authored trait
+   * names and trait values, so the default rewrite reports a `dark_brown` trait
+   * as `darkBrown` and merges two traits that differ only in casing.
+   *
+   * The return type stays the camelized view, so the caller is responsible for
+   * passing a `T` whose keys already match the wire shape. `GetTraitsResponse`
+   * qualifies because `Camelize<T>` passes index signatures through unchanged.
+   */
+  camelizeResponse?: boolean
 }

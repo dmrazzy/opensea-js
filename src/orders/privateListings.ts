@@ -62,6 +62,21 @@ export const constructPrivateListingCounterOrder = (
     ) {
       throw new Error("Not all currency items were the same for private order")
     }
+    // The counter order below sums every payment item into a single offer item
+    // denominated in the first item's token, so two different ERC-20s would be
+    // aggregated as if they were one. Seaport then rejects the match because
+    // the offer and consideration components disagree on token, surfacing as an
+    // onchain revert rather than as this error.
+    if (
+      !paymentItems.every(
+        item =>
+          item.token.toLowerCase() === paymentItems[0].token.toLowerCase(),
+      )
+    ) {
+      throw new Error(
+        "Not all currency items were the same for private order: payment items must all use the same token",
+      )
+    }
   }
 
   const { aggregatedStartAmount, aggregatedEndAmount } = paymentItems.reduce(

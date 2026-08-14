@@ -8,6 +8,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ProjectOpenSea/opensea-js"
+    "url": "https://github.com/ProjectOpenSea/opensea-sdk"
   }
 }

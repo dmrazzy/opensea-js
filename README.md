@@ -5,7 +5,6 @@
 [![Version][version-badge]][version-link]
 [![npm][npm-badge]][npm-link]
 [![Test CI][ci-badge]][ci-link]
-[![Coverage Status][coverage-badge]][coverage-link]
 [![License][license-badge]][license-link]
 [![Docs][docs-badge]][docs-link]
 [![Discussions][discussions-badge]][discussions-link]
@@ -135,13 +134,48 @@ console.log(activity.windows["24h"]?.volumeUsd)
 The SDK exposes camel-cased fields. A requested window is absent when the token
 has no swaps in that period.
 
+### Real-time events
+
+Subscribe to marketplace events over WebSocket from the `@opensea/sdk/stream`
+subpath. Streaming events do not count toward your API rate limits.
+
+```typescript
+import { OpenSeaStreamClient, EventType } from "@opensea/sdk/stream";
+
+const client = new OpenSeaStreamClient({ apiKey: "YOUR_API_KEY" });
+
+// Listings for one collection, by slug
+const unsubscribe = client.onItemListed("doodles-official", event => {
+  console.log(event.payload.item.nft_id, event.payload.base_price);
+});
+
+// Sales across every collection
+client.onItemSold("*", event => console.log(event.payload.sale_price));
+
+// Several event types at once, filtered server-side
+client.onEvents(
+  "doodles-official",
+  [EventType.ITEM_SOLD, EventType.ITEM_CANCELLED],
+  console.log,
+);
+
+unsubscribe();
+```
+
+Node 22 or newer, or any browser, needs no extra dependencies. The client
+reconnects with backoff and re-subscribes to every topic it was watching, so a
+dropped connection recovers without any work from you.
+
+This code was published as `@opensea/stream-js` until version 0.4.0. See the
+[migration guide](developerDocs/stream-migration.md) for the differences.
+
 ## Documentation
 
 - [Quick Start Guide](developerDocs/quick-start.md)
 - [Getting Started Guide](developerDocs/getting-started.md)
 - [API Reference](developerDocs/api-reference.md)
+- [Stream migration from @opensea/stream-js](developerDocs/stream-migration.md)
 - [Advanced Use Cases](developerDocs/advanced-use-cases.md)
-- [SDK Reference](https://projectopensea.github.io/opensea-js/)
 - [Frequently Asked Questions](developerDocs/faq.md)
 - [Contributing](CONTRIBUTING.md)
 
@@ -164,20 +198,18 @@ For frontend applications that need to interact with OpenSea functionality:
 
 The changelog for recent versions can be found at:
 
-- @opensea/sdk: https://github.com/ProjectOpenSea/opensea-js/releases
+- @opensea/sdk: https://github.com/ProjectOpenSea/opensea-sdk/releases
 - OpenSea API: https://docs.opensea.io/changelog
 
-[version-badge]: https://img.shields.io/github/package-json/v/ProjectOpenSea/opensea-js
-[version-link]: https://github.com/ProjectOpenSea/opensea-js/releases
+[version-badge]: https://img.shields.io/github/package-json/v/ProjectOpenSea/opensea-sdk
+[version-link]: https://github.com/ProjectOpenSea/opensea-sdk/releases
 [npm-badge]: https://img.shields.io/npm/v/@opensea/sdk?color=red
 [npm-link]: https://www.npmjs.com/package/@opensea/sdk
-[ci-badge]: https://github.com/ProjectOpenSea/opensea-js/actions/workflows/ci.yml/badge.svg
-[ci-link]: https://github.com/ProjectOpenSea/opensea-js/actions/workflows/ci.yml
-[coverage-badge]: https://coveralls.io/repos/github/ProjectOpenSea/opensea-js/badge.svg?branch=main
-[coverage-link]: https://coveralls.io/github/ProjectOpenSea/opensea-js?branch=main
-[license-badge]: https://img.shields.io/github/license/ProjectOpenSea/opensea-js
-[license-link]: https://github.com/ProjectOpenSea/opensea-js/blob/main/LICENSE
+[ci-badge]: https://github.com/ProjectOpenSea/opensea-sdk/actions/workflows/ci.yml/badge.svg
+[ci-link]: https://github.com/ProjectOpenSea/opensea-sdk/actions/workflows/ci.yml
+[license-badge]: https://img.shields.io/github/license/ProjectOpenSea/opensea-sdk
+[license-link]: https://github.com/ProjectOpenSea/opensea-sdk/blob/main/LICENSE
 [docs-badge]: https://img.shields.io/badge/@opensea/sdk-documentation-informational
-[docs-link]: https://github.com/ProjectOpenSea/opensea-js#documentation
+[docs-link]: https://github.com/ProjectOpenSea/opensea-sdk#documentation
 [discussions-badge]: https://img.shields.io/badge/@opensea/sdk-discussions-blueviolet
-[discussions-link]: https://github.com/ProjectOpenSea/opensea-js/discussions
+[discussions-link]: https://github.com/ProjectOpenSea/opensea-sdk/discussions

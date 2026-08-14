@@ -12,6 +12,11 @@ const TAKER_ADDRESS = "0x2222222222222222222222222222222222222222"
 const FEE_RECIPIENT = "0x3333333333333333333333333333333333333333"
 const NFT_CONTRACT = "0x4444444444444444444444444444444444444444"
 const WETH_ADDRESS = "0x5555555555555555555555555555555555555555"
+const TOKEN_A = "0x6666666666666666666666666666666666666666"
+const TOKEN_B = "0x7777777777777777777777777777777777777777"
+// The same address in checksummed and lowercase form.
+const TOKEN_A_CHECKSUMMED = "0xAbCdEf0000000000000000000000000000000000"
+const TOKEN_A_LOWERCASE = "0xabcdef0000000000000000000000000000000000"
 
 const createMockOrder = (
   consideration: OrderWithCounter["parameters"]["consideration"],
@@ -292,6 +297,130 @@ describe("Orders: privateListings", () => {
       expect(() =>
         constructPrivateListingCounterOrder(order, TAKER_ADDRESS),
       ).toThrow("Not all currency items were the same")
+    })
+
+    test("should throw if ERC20 payment items reference different tokens", () => {
+      // Without the token check these two are summed into a single 120 TOKEN_A
+      // offer item, and Seaport rejects the match onchain instead.
+      const order = createMockOrder([
+        // NFT to taker
+        {
+          itemType: ItemType.ERC721,
+          token: NFT_CONTRACT,
+          identifierOrCriteria: "1",
+          startAmount: "1",
+          endAmount: "1",
+          recipient: TAKER_ADDRESS,
+        },
+        // TOKEN_A payment to seller
+        {
+          itemType: ItemType.ERC20,
+          token: TOKEN_A,
+          identifierOrCriteria: "0",
+          startAmount: "100",
+          endAmount: "100",
+          recipient: SELLER_ADDRESS,
+        },
+        // TOKEN_B payment to fee recipient
+        {
+          itemType: ItemType.ERC20,
+          token: TOKEN_B,
+          identifierOrCriteria: "0",
+          startAmount: "20",
+          endAmount: "20",
+          recipient: FEE_RECIPIENT,
+        },
+      ])
+
+      expect(() =>
+        constructPrivateListingCounterOrder(order, TAKER_ADDRESS),
+      ).toThrow("payment items must all use the same token")
+    })
+
+    test("should not treat differently-cased identical ERC20 tokens as different currencies", () => {
+      const order = createMockOrder([
+        // NFT to taker
+        {
+          itemType: ItemType.ERC721,
+          token: NFT_CONTRACT,
+          identifierOrCriteria: "1",
+          startAmount: "1",
+          endAmount: "1",
+          recipient: TAKER_ADDRESS,
+        },
+        // TOKEN_A checksummed, payment to seller
+        {
+          itemType: ItemType.ERC20,
+          token: TOKEN_A_CHECKSUMMED,
+          identifierOrCriteria: "0",
+          startAmount: "100",
+          endAmount: "100",
+          recipient: SELLER_ADDRESS,
+        },
+        // Same token lowercased, payment to fee recipient
+        {
+          itemType: ItemType.ERC20,
+          token: TOKEN_A_LOWERCASE,
+          identifierOrCriteria: "0",
+          startAmount: "20",
+          endAmount: "20",
+          recipient: FEE_RECIPIENT,
+        },
+      ])
+
+      const counterOrder = constructPrivateListingCounterOrder(
+        order,
+        TAKER_ADDRESS,
+      )
+
+      expect(counterOrder.parameters.offer).toHaveLength(1)
+      expect(counterOrder.parameters.offer[0].itemType).toBe(ItemType.ERC20)
+      expect(counterOrder.parameters.offer[0].token).toBe(TOKEN_A_CHECKSUMMED)
+      expect(counterOrder.parameters.offer[0].startAmount).toBe("120")
+      expect(counterOrder.parameters.offer[0].endAmount).toBe("120")
+    })
+
+    test("should still aggregate multiple payment items in the same token", () => {
+      const order = createMockOrder([
+        // NFT to taker
+        {
+          itemType: ItemType.ERC721,
+          token: NFT_CONTRACT,
+          identifierOrCriteria: "1",
+          startAmount: "1",
+          endAmount: "1",
+          recipient: TAKER_ADDRESS,
+        },
+        // WETH to seller
+        {
+          itemType: ItemType.ERC20,
+          token: WETH_ADDRESS,
+          identifierOrCriteria: "0",
+          startAmount: "900000000000000000",
+          endAmount: "900000000000000000",
+          recipient: SELLER_ADDRESS,
+        },
+        // WETH fee
+        {
+          itemType: ItemType.ERC20,
+          token: WETH_ADDRESS,
+          identifierOrCriteria: "0",
+          startAmount: "100000000000000000",
+          endAmount: "100000000000000000",
+          recipient: FEE_RECIPIENT,
+        },
+      ])
+
+      const counterOrder = constructPrivateListingCounterOrder(
+        order,
+        TAKER_ADDRESS,
+      )
+
+      expect(counterOrder.parameters.offer).toHaveLength(1)
+      expect(counterOrder.parameters.offer[0].token).toBe(WETH_ADDRESS)
+      expect(counterOrder.parameters.offer[0].startAmount).toBe(
+        "1000000000000000000",
+      )
     })
   })
 })

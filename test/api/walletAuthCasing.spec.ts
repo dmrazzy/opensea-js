@@ -24,7 +24,7 @@ import { WalletAuthAPI } from "../../src/api/walletAuth"
  * `node_modules/@opensea/api-types/opensea-api.json` comes first because it is
  * the only location that exists in **both** contexts this suite runs in: a
  * workspace symlink in the monorepo, and the installed package on the public
- * `opensea-js` mirror, where `packages/api-types/` doesn't exist at all and
+ * `opensea-sdk` mirror, where `packages/api-types/` doesn't exist at all and
  * api-types is an ordinary npm dependency. (`opensea-api.json` is in the
  * package's `files`, so it ships.) The monorepo paths stay as a fallback for
  * a checkout whose deps aren't installed.

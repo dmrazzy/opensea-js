@@ -25,7 +25,7 @@ export * from "./utils"
  * // Example Setup
  * ```ts
  * import { ethers } from 'ethers'
- * import { OpenSeaSDK, Chain } from 'opensea-js'
+ * import { OpenSeaSDK, Chain } from '@opensea/sdk'
  * const provider = new ethers.JsonRpcProvider('https://mainnet.infura.io')
  * const client = new OpenSeaSDK(provider, {
  *   chain: Chain.Mainnet

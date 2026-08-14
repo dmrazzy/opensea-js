@@ -1,5 +1,35 @@
 # @opensea/sdk
 
+## 11.9.0
+
+### Minor Changes
+
+- d355093: Three fixes from community reports on the public mirror, each of which changes behavior for input that previously produced a wrong answer or an unhelpful crash.
+
+  **`getTraits` no longer camelizes its response.** The fetcher rewrites every response's keys from snake_case to camelCase, which is right for the spec-derived endpoints and wrong for this one: its keys are the collection's own trait names and trait values. A `fur_color` trait was reported as `furColor`, and a collection with both `dark_brown` and `darkBrown` values had them merged into one entry whose count was wrong, with nothing in the response to indicate it. `RequestOptions` gains a `camelizeResponse` opt-out, honored by both reads and writes, and `getTraits` is the only caller that sets it. If you have been reading camelized trait keys since 11.0.0, they now come back as the collection authored them. (ProjectOpenSea/opensea-js#1989)
+
+  **`parseUnits` accepts scientific notation from strings.** It only stripped exponent notation when the value was a `number`, so `parseUnits("1e-8", 18)` reached `BigInt` intact and threw `Cannot convert 1e-8000000000000000000 to a BigInt`. Any caller that stringifies an amount first hit this, including the SDK's own `wrapEth`, `unwrapWeth`, and listing/offer price paths, which all call `amount.toString()`. Expansion is now done with string math rather than `Number.prototype.toFixed`, so large values stay exact (`toFixed` corrupts above 2^53 and returns exponential notation again at or above 1e21) and a value below the token's precision throws `Too many decimal places` rather than silently truncating to zero. Malformed input now throws `Invalid decimal value` instead of a raw `SyntaxError` from `BigInt`, and an empty string throws rather than parsing as `0`. (ProjectOpenSea/opensea-js#1990)
+
+  **Private listings reject payment items in different tokens.** `constructPrivateListingCounterOrder` checked that every payment item shared an `itemType` but not that they shared a token, then summed them into a single offer item denominated in the first item's token: 100 TOKEN_A plus 20 TOKEN_B became 120 TOKEN_A. Seaport rejected the resulting match, so the failure surfaced as an onchain revert instead of an SDK error. Token comparison is case-insensitive, so the same address in checksummed and lowercase form is still one currency. (ProjectOpenSea/opensea-js#1991)
+
+- 8527112: Add the OpenSea Stream API client at the `@opensea/sdk/stream` subpath, replacing the standalone `@opensea/stream-js` package.
+
+  The client speaks the Phoenix Channels wire protocol directly instead of depending on `phoenix`, so the subpath resolves to six local files and no third-party runtime code. Importing it pulls in neither ethers nor seaport. The transport sits behind an internal interface so a future Stream API v2, which will not use Phoenix framing, can be added without a breaking change.
+
+  Migrating from `@opensea/stream-js` is mostly an import change. See `developerDocs/stream-migration.md`.
+
+  - Node users no longer need `ws` or `node-localstorage`. Node 22+ and browsers supply a global `WebSocket`, and `sessionStorage` was only read by an unused long-poll fallback.
+  - `apiKey` replaces `token` in `ClientConfig`. `token` still works and is deprecated.
+  - `connectOptions` is now `StreamConnectOptions` rather than `Partial<SocketConnectOption>` from `@types/phoenix`. Options that only fed the long-poll fallback and binary serializer are gone.
+  - Unsubscribing now removes a single handler instead of leaving the whole collection channel. Previously, two subscriptions on one collection meant unsubscribing from one silently stopped the other.
+  - `engines.node` is raised to `>=22.0.0`. Node 20 reached end of life in April 2026.
+
+### Patch Changes
+
+- 8715ac2: Point the package metadata at the renamed public repo, `ProjectOpenSea/opensea-sdk`. `repository.url` and `bugs.url` both moved, so the npm page links to the right place rather than relying on GitHub's rename redirect. The npm package name is unchanged.
+
+  Also drops the TypeDoc setup that fed the GitHub Pages site at `projectopensea.github.io/opensea-js`. Nothing published it: no workflow built the `gh-pages` branch, so the site had been serving v8.0.20 docs against a shipped 11.8.0 for months. The `docs-build` and `docs-build-md` scripts, the `typedoc` and `typedoc-plugin-markdown` devDependencies, and `.config/typedoc.json` are gone, along with the dead Coveralls badge (that project returns 403 and no CI job has uploaded coverage in a long time). Method-level reference docs live in `developerDocs/api-reference.md`.
+
 ## 11.8.0
 
 ### Minor Changes

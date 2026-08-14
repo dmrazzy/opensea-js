@@ -47,3 +47,31 @@ describe("Root exports", () => {
     expect(typeof WalletAuthAPI).toBe("function")
   })
 })
+
+describe("Stream subpath exports", () => {
+  test("exports the stream client and event types", async () => {
+    const { OpenSeaStreamClient, EventType, LogLevel, Network } = await import(
+      "../src/stream"
+    )
+    expect(typeof OpenSeaStreamClient).toBe("function")
+    expect(EventType.ITEM_LISTED).toBe("item_listed")
+    expect(LogLevel.WARN).toBe(40)
+    expect(Network.MAINNET).toBe("mainnet")
+  })
+
+  test("does not leak transport internals", async () => {
+    const mod = await import("../src/stream")
+    // The transport abstraction is deliberately internal so it can be
+    // reshaped for a future stream backend without a breaking change.
+    expect(mod).not.toHaveProperty("PhoenixChannelsTransport")
+    expect(mod).not.toHaveProperty("StreamTransport")
+  })
+
+  test("stream types are not re-exported from the SDK root", async () => {
+    // `EventType`, `Trait`, `TraitOfferEvent`, and `CollectionOfferEvent` all
+    // exist in both surfaces with different shapes. Keeping stream on its own
+    // subpath is what avoids the collision.
+    const root = await import("../src")
+    expect(root).not.toHaveProperty("OpenSeaStreamClient")
+  })
+})

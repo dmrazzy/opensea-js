@@ -11,6 +11,7 @@ import {
   type OpenSeaCollection,
   type OpenSeaCollectionStats,
 } from "../../src/types"
+import type { Camelize } from "../../src/utils/case"
 import { createMockFetcher } from "../fixtures/fetcher"
 
 describe("API: CollectionsAPI", () => {
@@ -450,6 +451,38 @@ describe("API: CollectionsAPI", () => {
       expect(result.counts.Background).toHaveProperty("Blue")
       expect(result.counts.Background.Blue).toBe(1234)
       expect(result.counts.Fur["Golden Brown"]).toBe(456)
+    })
+
+    test("is safe to opt out of camelization, because the type is unchanged by it", () => {
+      // The opt-out returns the raw body while the signature still says
+      // `Camelize<GetTraitsResponse>`. That is only honest while the two are
+      // identical, which holds because `Camelize` passes index signatures
+      // through unchanged. Adding a snake_case *field* name to
+      // GetTraitsResponse would break that and fail check-types here rather
+      // than silently mistyping the response.
+      type IsIdentical<A, B> = [A] extends [B]
+        ? [B] extends [A]
+          ? true
+          : false
+        : false
+      const camelizeIsIdentity: IsIdentical<
+        Camelize<GetTraitsResponse>,
+        GetTraitsResponse
+      > = true
+
+      expect(camelizeIsIdentity).toBe(true)
+    })
+
+    test("opts out of response camelization", async () => {
+      // The keys in this payload are trait names and trait values, so the
+      // fetcher's default snake_case → camelCase rewrite would corrupt them.
+      // Asserted at the call site so a future refactor of getTraits cannot
+      // quietly drop the opt-out.
+      mockGet.mockResolvedValue({ categories: {}, counts: {} })
+
+      await collectionsAPI.getTraits("boredapeyachtclub")
+
+      expect(mockGet.mock.calls[0][2]).toEqual({ camelizeResponse: false })
     })
 
     test("handles collection with no traits", async () => {

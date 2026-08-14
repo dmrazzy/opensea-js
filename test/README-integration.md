@@ -73,3 +73,19 @@ Bulk orders allow signing multiple orders with a single wallet signature, reduci
 - Single orders use normal signatures to avoid merkle proof overhead
 - Tests include detailed logging of order hashes and signature lengths
 - Test timeouts: 120s for bulk operations, 60s for single orders
+
+## Stream tests
+
+`test/integration/stream.spec.ts` connects to `wss://stream-api.opensea.io/socket`
+and needs only `OPENSEA_API_KEY`, no wallet.
+
+These need direct outbound network access. Running them through `pnpm` can fail
+because npm/pnpm wrappers such as Socket Firewall set `HTTP_PROXY` and
+`HTTPS_PROXY` to a local proxy that only tunnels registry traffic, and the
+WebSocket handshake is refused with close code 1006. A `beforeAll` probe detects
+this and fails with an explicit message rather than letting the assertions pass
+vacuously. If you hit it, invoke vitest directly:
+
+```bash
+node ../../node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts test/integration/stream.spec.ts
+```

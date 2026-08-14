@@ -86,20 +86,6 @@ npm link
 npm link @opensea/sdk
 ```
 
-**Generate Documentation**
-
-Generate HTML docs (also available for browsing at [https://projectopensea.github.io/opensea-js](https://projectopensea.github.io/opensea-js)):
-
-```bash
-npm run docs-build
-```
-
-Generate Markdown docs:
-
-```bash
-npm run docs-build-md
-```
-
 ## Pull Request Guidelines
 
 When submitting a pull request:
@@ -156,6 +142,6 @@ When adding new features:
 
 ## Getting Help
 
-- **Issues**: Use [GitHub Issues](https://github.com/ProjectOpenSea/opensea-js/issues) for bug reports and feature requests
-- **Discussions**: Use [GitHub Discussions](https://github.com/ProjectOpenSea/opensea-js/discussions) for questions and general discussion
+- **Issues**: Use [GitHub Issues](https://github.com/ProjectOpenSea/opensea-sdk/issues) for bug reports and feature requests
+- **Discussions**: Use [GitHub Discussions](https://github.com/ProjectOpenSea/opensea-sdk/discussions) for questions and general discussion
 - **Documentation**: Check the [docs](https://docs.opensea.io/reference/sdk-overview) for API and SDK guidance

@@ -48,8 +48,44 @@ describe("parseUnits", () => {
     expect(parseUnits(1e-8, 18)).toBe(10000000000n)
   })
 
+  test("handles string scientific notation", () => {
+    // Any caller that stringifies an amount before parsing it lands here:
+    // String(1e-8) is "1e-8", which used to reach BigInt intact and throw
+    // "Cannot convert 1e-8000000000000000000 to a BigInt".
+    expect(parseUnits("1e-8", 18)).toBe(10000000000n)
+    expect(parseUnits("1.5e-5", 18)).toBe(15000000000000n)
+    expect(parseUnits("1E-6", 6)).toBe(1n)
+    expect(parseUnits("2e3", 18)).toBe(2000000000000000000000n)
+    expect(parseUnits("-1e-8", 18)).toBe(-10000000000n)
+    expect(parseUnits("1e+2", 0)).toBe(100n)
+  })
+
+  test("expands scientific notation exactly, without float rounding", () => {
+    // Going through Number.toFixed would return 1000000000000000019884624838656
+    // for this, and exponential notation rather than digits at or above 1e21.
+    expect(parseUnits("1e30", 0)).toBe(1000000000000000000000000000000n)
+    expect(parseUnits("1.234567890123456789e18", 0)).toBe(1234567890123456789n)
+  })
+
+  test("throws rather than truncating a value below the token's precision", () => {
+    // toFixed(6) would render 1e-8 as "0.000000", silently parsing a nonzero
+    // amount as zero.
+    expect(() => parseUnits("1e-8", 6)).toThrow("Too many decimal places")
+  })
+
   test("throws for invalid decimal (multiple dots)", () => {
     expect(() => parseUnits("1.2.3", 18)).toThrow("Invalid decimal value")
+  })
+
+  test("throws for non-numeric input instead of failing inside BigInt", () => {
+    expect(() => parseUnits("abc", 18)).toThrow("Invalid decimal value")
+    expect(() => parseUnits("", 18)).toThrow("Invalid decimal value")
+    expect(() => parseUnits("1e", 18)).toThrow("Invalid decimal value")
+    expect(() => parseUnits("e5", 18)).toThrow("Invalid decimal value")
+    expect(() => parseUnits(Number.NaN, 18)).toThrow("Invalid decimal value")
+    expect(() => parseUnits(Number.POSITIVE_INFINITY, 18)).toThrow(
+      "Invalid decimal value",
+    )
   })
 })
 
