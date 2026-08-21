@@ -27,16 +27,8 @@ pnpm run lint
 3. **Dual provider support**. Changes to `BaseOpenSeaSDK` affect both ethers and viem paths; update both provider adapters if provider-specific logic changes.
 4. **OAuth token contract**. `OpenSeaOAuth` requests `offline_access`; refresh responses may omit rotation — keep the previous refresh token. The top-level `wallet` JWT claim is wallet identity; `sub` is an account id.
 5. **No secret leakage**. API keys live in `OpenSeaAPIConfig.apiKey`; never log them.
-6. **Stream stays on its own subpath**. `EventType`, `Trait`, `TraitOfferEvent`,
-   and `CollectionOfferEvent` exist in both surfaces with different shapes, so
-   `src/stream/` must never be re-exported from `src/index.ts`.
-7. **The stream transport is internal**. `src/stream/transport/` is not exported
-   from `src/stream/index.ts`. Stream API v2 will not speak Phoenix Channels, so
-   the interface must stay free to change without a breaking release. Client code
-   talks to `StreamTransport`, never to `PhoenixChannelsTransport` directly.
-8. **No dependency for the stream client**. `@opensea/sdk/stream` resolves to six
-   local files and nothing else. Verify with a require-graph walk before adding
-   any import there.
+6. **Auth scopes are coupled to the spec in both directions**. `src/scopes.ts` asserts at compile time that `OPENSEA_SCOPES` matches `AuthScope` from `@opensea/api-types`, so a new scope has to land in the spec and in the constant in the same commit, and that commit cannot pass the `Mirror layout` gate until api-types publishes. Read [Spec changes and release order](../../AGENTS.md#spec-changes-and-release-order) before starting.
+7. **Stream client is subpath-only and dependency-free**. `src/stream/` is exported from `./stream` and never from `src/index.ts` — `EventType`, `Trait`, `TraitOfferEvent`, and `CollectionOfferEvent` exist in both surfaces with different shapes. `src/stream/transport/` stays internal so a non-Phoenix Stream v2 can replace it without a breaking release; client code uses `StreamTransport`, never `PhoenixChannelsTransport`. The built entry resolves to six local files with zero external requires, so check the require graph before adding an import. Live tests are in `test/integration/stream.spec.ts` and need real network access, see `test/README-integration.md`.
 
 ## Conventions
 

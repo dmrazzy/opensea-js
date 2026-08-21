@@ -424,19 +424,6 @@ export class WalletAuthAPI {
     )
   }
 
-  markWalletAsAgent(wallet: string) {
-    return this.fetcher.request<OperationResponse<"mark_wallet_as_agent">>(
-      "PUT",
-      `/api/v2/accounts/wallets/${segment(wallet)}/agent`,
-    )
-  }
-
-  removeWalletAgentDesignation(wallet: string) {
-    return this.fetcher.request<
-      OperationResponse<"remove_wallet_agent_designation">
-    >("DELETE", `/api/v2/accounts/wallets/${segment(wallet)}/agent`)
-  }
-
   makeWalletPrivate(wallet: string) {
     return this.fetcher.request<OperationResponse<"make_wallet_private">>(
       "PUT",
@@ -448,6 +435,106 @@ export class WalletAuthAPI {
     return this.fetcher.request<OperationResponse<"make_wallet_public">>(
       "DELETE",
       `/api/v2/accounts/wallets/${segment(wallet)}/private`,
+    )
+  }
+
+  // ── Agent accounts ────────────────────────────────────────────────
+  //
+  // An agent is an account, not a flag on a wallet, and ownership is a
+  // relationship between two accounts that both sides confirm. It is a
+  // declaration, not an authorization: naming an account as your agent
+  // grants it nothing. It is self-reported and OpenSea does not verify it.
+  //
+  // The five writes below need `write:wallets`. `listOwnAgentRelationships`
+  // needs `read:wallets`. A client driving the whole handshake needs both, or
+  // the list call fails with "Insufficient permissions".
+
+  /**
+   * Declare the authenticated account an agent. Requires `write:wallets`.
+   *
+   * Independent of ownership: an agent nobody owns is valid. `changed` is
+   * false when the account was already an agent, so a retry is
+   * distinguishable from a real change.
+   */
+  declareAgentAccount() {
+    return this.fetcher.request<OperationResponse<"declare_agent_account">>(
+      "PUT",
+      "/api/v2/accounts/agent",
+    )
+  }
+
+  /**
+   * Withdraw the authenticated account's agent declaration. Requires
+   * `write:wallets`.
+   */
+  withdrawAgentAccountDeclaration() {
+    return this.fetcher.request<
+      OperationResponse<"withdraw_agent_account_declaration">
+    >("DELETE", "/api/v2/accounts/agent")
+  }
+
+  /**
+   * Propose an agent ownership relationship. Requires `write:wallets`.
+   *
+   * `callerRole` says which side the caller is on: `AGENT` means "I am an
+   * agent and the counterparty owns me". The caller's own account is never in
+   * the body; it comes from the bearer token.
+   *
+   * Proposing a relationship that is already awaiting you confirms it, so a
+   * client that cannot tell who moved first can just propose.
+   */
+  proposeAgentRelationship(
+    body: WalletAuthRequest<"propose_agent_relationship">,
+  ) {
+    return this.fetcher.request<
+      OperationResponse<"propose_agent_relationship">
+    >("POST", "/api/v2/accounts/agent-relationships", body)
+  }
+
+  /**
+   * Confirm a relationship proposed to the authenticated account. Requires
+   * `write:wallets`. An agent ends up with at most one confirmed owner.
+   */
+  confirmAgentRelationship(
+    body: WalletAuthRequest<"confirm_agent_relationship">,
+  ) {
+    return this.fetcher.request<
+      OperationResponse<"confirm_agent_relationship">
+    >("POST", "/api/v2/accounts/agent-relationships/confirm", body)
+  }
+
+  /**
+   * Withdraw a proposal or revoke a confirmed relationship. Requires
+   * `write:wallets`. Either side may do this at any point, and it deletes the
+   * relationship rather than marking it inactive.
+   *
+   * `removed` is false when no such relationship existed, which covers both a
+   * counterparty you never proposed to and someone else's relationship.
+   *
+   * Sent as query parameters rather than a body on purpose: fetch, OkHttp and
+   * urllib all drop DELETE bodies by default, and proxies may strip them.
+   */
+  revokeAgentRelationship(query: WalletAuthQuery<"revoke_agent_relationship">) {
+    const params = new URLSearchParams({
+      counterparty_address: query.counterpartyAddress,
+      caller_role: query.callerRole,
+    })
+    return this.fetcher.request<OperationResponse<"revoke_agent_relationship">>(
+      "DELETE",
+      `/api/v2/accounts/agent-relationships?${params}`,
+    )
+  }
+
+  /**
+   * List the authenticated account's own relationships. Requires
+   * `read:wallets`, not `write:wallets`.
+   *
+   * Includes proposals still awaiting either side. Pending relationships show
+   * up here only; a public profile shows confirmed ones alone.
+   */
+  listOwnAgentRelationships() {
+    return this.fetcher.get<OperationResponse<"list_own_agent_relationships">>(
+      "/api/v2/accounts/agent-relationships",
     )
   }
 }

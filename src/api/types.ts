@@ -1,9 +1,12 @@
 import type {
+  AccountResolveResponse,
   AccountSearchResponse as ApiAccountSearchResponse,
   AgentProfileRelationshipsResponse as ApiAgentProfileRelationshipsResponse,
   BuildOfferResponse as ApiBuildOfferResponse,
   CancelResponse as ApiCancelResponse,
   CollectionSearchResponse as ApiCollectionSearchResponse,
+  DropMintRequest as ApiDropMintRequest,
+  DropMintResponse as ApiDropMintResponse,
   Listing as ApiListing,
   Nft as ApiNft,
   NftSearchResponse as ApiNftSearchResponse,
@@ -28,8 +31,10 @@ import type {
   Trait as ApiTrait,
   TransactionReceiptRequest as ApiTransactionReceiptRequest,
   TransactionReceiptResponse as ApiTransactionReceiptResponse,
+  ValidateMetadataResponse as ApiValidateMetadataResponse,
   WalletVisibilityResponse as ApiWalletVisibilityResponse,
   AssetMetadataResponse,
+  ChainListResponse,
   ChainResponse,
   ContractResponse,
   DropDetailedResponse,
@@ -354,11 +359,25 @@ export type SvmTransactionDetailsResponse =
 export type WalletVisibilityResponse = Camelize<ApiWalletVisibilityResponse>
 
 /**
- * Public agent profile relationships for an account.
+ * Public agent profile relationships for an account. Only relationships both
+ * accounts confirmed appear here; a pending proposal is visible to the two
+ * parties alone, through `listOwnAgentRelationships`.
+ *
+ * `agentOwner` is the account confirmed to own this one, and is null when
+ * there is none. That is ordinary rather than exceptional: an agent nobody
+ * declared is a valid agent account. `agents` holds the accounts this one is
+ * the confirmed owner of, newest first.
+ *
+ * The wire response also carries `agent_owner_profile` and
+ * `public_agent_wallets`. Both read the retired wallet-level designation, are
+ * permanently null and empty, and are removed by AGE-51, so they are omitted
+ * here rather than offered as fields a caller might reasonably read.
  * @category API Response Types
  */
-export type AgentProfileRelationshipsResponse =
-  Camelize<ApiAgentProfileRelationshipsResponse>
+export type AgentProfileRelationshipsResponse = Omit<
+  Camelize<ApiAgentProfileRelationshipsResponse>,
+  "agentOwnerProfile" | "publicAgentWallets"
+>
 
 /**
  * Request body for fetching a transaction receipt.
@@ -971,10 +990,7 @@ export type ChainInfo = Camelize<ChainResponse>
  * Response from OpenSea API for listing supported chains.
  * @category API Response Types
  */
-export type GetChainsResponse = {
-  /** List of supported chains */
-  chains: ChainInfo[]
-}
+export type GetChainsResponse = Camelize<ChainListResponse>
 
 /**
  * Token balance for a wallet address. Sourced from `@opensea/api-types`
@@ -1075,27 +1091,13 @@ export interface GetDropsArgs {
  * Request body for building a drop mint transaction.
  * @category API Request Types
  */
-export type DropMintRequest = {
-  /** Wallet address that will receive the minted tokens */
-  minter: string
-  /** Number of tokens to mint (1-100) */
-  quantity: number
-}
+export type DropMintRequest = Camelize<ApiDropMintRequest>
 
 /**
  * Response from OpenSea API for building a drop mint transaction.
  * @category API Response Types
  */
-export type DropMintResponse = {
-  /** Transaction target contract address */
-  to: string
-  /** Encoded transaction data (hex) */
-  data: string
-  /** Transaction value in wei (hex) */
-  value: string
-  /** Chain identifier */
-  chain: string
-}
+export type DropMintResponse = Camelize<ApiDropMintResponse>
 
 /**
  * Query args for Get Trending Collections endpoint.
@@ -1143,52 +1145,13 @@ export type GetCollectionsPaginatedResponse = QueryCursorsV2 & {
  * Response from OpenSea API for resolving an account identifier.
  * @category API Response Types
  */
-export type ResolveAccountResponse = {
-  /** The resolved wallet address */
-  address: string
-  /** OpenSea username, if available */
-  username?: string
-  /** Primary ENS name, if available */
-  ensName?: string
-}
+export type ResolveAccountResponse = Camelize<AccountResolveResponse>
 
 /**
  * Response from OpenSea API for validating NFT metadata.
  * @category API Response Types
  */
-export type ValidateMetadataResponse = {
-  /** The asset being validated */
-  assetIdentifier: {
-    chain: string
-    contractAddress: string
-    tokenId: string
-  }
-  /** The token URI */
-  tokenUri?: string
-  /** Parsed metadata details */
-  metadata?: {
-    name?: string
-    description?: string
-    originalImageUrl?: string
-    processedImageUrl?: string
-    originalAnimationUrl?: string
-    processedAnimationUrl?: string
-    externalUrl?: string
-    backgroundColor?: string
-    attributes: {
-      traitType: string
-      value: string
-      displayType?: string
-    }[]
-  }
-  /** Error encountered during metadata ingestion */
-  error?: {
-    errorType: string
-    message: string
-    url?: string
-    statusCode?: number
-  }
-}
+export type ValidateMetadataResponse = Camelize<ApiValidateMetadataResponse>
 
 /**
  * Response from OpenSea API for fetching raw NFT metadata.

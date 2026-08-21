@@ -90,6 +90,52 @@ describe("constructor", () => {
   })
 })
 
+describe("onItemReceivedOffer", () => {
+  test("is a no-op: no subscription, no connection, callable unsubscribe", async () => {
+    streamClient = new OpenSeaStreamClient({
+      ...clientOpts,
+      logLevel: LogLevel.ERROR,
+    })
+
+    const callback = vi.fn()
+    const unsubscribe = streamClient.onItemReceivedOffer("c1", callback)
+    await Promise.resolve()
+    await Promise.resolve()
+
+    // The Stream API never emits item_received_offer, so this must not join a
+    // topic or open a socket for a subscription that cannot deliver.
+    expect(getTopics(streamClient)).toEqual([])
+    expect(server.connectionCount).toBe(0)
+    expect(typeof unsubscribe).toBe("function")
+    expect(() => unsubscribe()).not.toThrow()
+    expect(callback).not.toHaveBeenCalled()
+  })
+
+  test("does not disturb a real subscription on the same collection", async () => {
+    streamClient = new OpenSeaStreamClient({
+      ...clientOpts,
+      logLevel: LogLevel.ERROR,
+    })
+
+    const onSold = vi.fn()
+    streamClient.onItemSold("c1", onSold)
+    streamClient.onItemReceivedOffer("c1", vi.fn())
+    await Promise.resolve()
+
+    expect(getTopics(streamClient)).toEqual(["collection:c1"])
+
+    const event = mockEvent(EventType.ITEM_SOLD, {})
+    server.send(
+      encode({
+        topic: collectionTopic("c1"),
+        event: EventType.ITEM_SOLD,
+        payload: event,
+      }),
+    )
+    expect(onSold).toHaveBeenCalledWith(event)
+  })
+})
+
 describe("unsubscribe", () => {
   test("channel", () => {
     streamClient = new OpenSeaStreamClient(clientOpts)

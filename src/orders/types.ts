@@ -1,9 +1,10 @@
-import type { BasicOrderParametersStruct } from "@opensea/seaport-js/lib/typechain-types/seaport/contracts/Seaport"
 import type {
-  AdvancedOrder,
-  OrderWithCounter,
-} from "@opensea/seaport-js/lib/types"
+  FulfillListingResponse as ApiFulfillListingResponse,
+  FulfillmentData as ApiFulfillmentData,
+} from "@opensea/api-types"
+import type { OrderWithCounter } from "@opensea/seaport-js/lib/types"
 import type { OpenSeaAccount, OrderSide } from "../types"
+import type { Camelize } from "../utils/case"
 
 // Protocol data
 type OrderProtocolToProtocolData = {
@@ -68,46 +69,22 @@ export type OrderV2 = {
   remainingQuantity: number
 }
 
-export type FulfillmentDataResponse = {
-  protocol: string
-  fulfillmentData: FulfillmentData
-}
-
-type FulfillmentData = {
-  transaction: Transaction
-  orders: ProtocolData[]
-}
-
-type Transaction = {
-  function: string
-  chain: number
-  to: string
-  value: string
-  inputData:
-    | {
-        // For fulfillAdvancedOrder
-        advancedOrder: AdvancedOrder
-        criteriaResolvers?: unknown[]
-        fulfillerConduitKey?: string
-        recipient: string
-      }
-    | {
-        // For fulfillBasicOrder
-        basicOrderParameters: BasicOrderParametersStruct
-      }
-    | {
-        // For fulfillOrder
-        order: OrderWithCounter
-        fulfillerConduitKey?: string
-        recipient: string
-      }
-    | {
-        // Legacy: for backward compatibility
-        orders:
-          | OrderWithCounter[]
-          | AdvancedOrder[]
-          | BasicOrderParametersStruct[]
-      }
+/**
+ * Response from the fulfillment data endpoints. Camelized from
+ * `@opensea/api-types`, with `orders` narrowed to the seaport-js
+ * `ProtocolData` shape the SDK hands back to callers.
+ *
+ * The generated `transaction` carries `calldataSuffix`, the 4-byte attribution
+ * suffix {@link FulfillmentManager.fulfillOrder} appends to the calldata, and
+ * `inputData` covers all seven Seaport calls the API can return rather than the
+ * four the SDK used to declare.
+ */
+export type FulfillmentDataResponse = Camelize<
+  Omit<ApiFulfillListingResponse, "fulfillment_data">
+> & {
+  fulfillmentData: Camelize<Omit<ApiFulfillmentData, "orders">> & {
+    orders: ProtocolData[]
+  }
 }
 
 // API query types

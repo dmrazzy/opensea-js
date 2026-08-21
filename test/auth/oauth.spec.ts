@@ -184,7 +184,7 @@ describe("OpenSeaOAuth", () => {
     const roleScopes = scopes.filter(scope =>
       scope.startsWith("urn:zitadel:iam:org:project:role:"),
     )
-    expect(roleScopes).toHaveLength(12)
+    expect(roleScopes).toHaveLength(13)
     expect(roleScopes).toContain(
       "urn:zitadel:iam:org:project:role:read:favorites",
     )
@@ -194,6 +194,11 @@ describe("OpenSeaOAuth", () => {
     )
     expect(roleScopes).toContain(
       "urn:zitadel:iam:org:project:role:write:wallets",
+    )
+    // Agent relationship writes take write:wallets but listing your own takes
+    // read:wallets, so the default grant has to carry both.
+    expect(roleScopes).toContain(
+      "urn:zitadel:iam:org:project:role:read:wallets",
     )
   })
 

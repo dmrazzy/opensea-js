@@ -70,6 +70,13 @@ export enum EventType {
   ITEM_LISTED = "item_listed",
   ITEM_SOLD = "item_sold",
   ITEM_TRANSFERRED = "item_transferred",
+  /**
+   * Never emitted by the Stream API. Item-level offers arrive as
+   * {@link EventType.ITEM_RECEIVED_BID}. Kept so existing references compile.
+   *
+   * @deprecated Use {@link EventType.ITEM_RECEIVED_BID}.
+   * @hidden
+   */
   ITEM_RECEIVED_OFFER = "item_received_offer",
   ITEM_RECEIVED_BID = "item_received_bid",
   ITEM_CANCELLED = "item_cancelled",
@@ -153,18 +160,26 @@ export type CollectionIdentifier = {
   slug: string
 }
 
-export interface ItemListedEventPayload extends Payload {
+// Shared fields for order events with maker, taker, payment, and timestamps.
+interface BaseOrderEventPayload extends Payload {
   quantity: number
-  listing_type: string
-  listing_date: string
-  expiration_date: string
   maker: Account
   taker: Account
-  base_price: string
-  payment_token: PaymentToken
-  is_private: boolean
   order_hash: string
+  payment_token: PaymentToken
   event_timestamp: string
+}
+
+// Shared price and expiry fields for priced order events.
+interface BasePricedOrderEventPayload extends BaseOrderEventPayload {
+  base_price: string
+  expiration_date: string
+}
+
+export interface ItemListedEventPayload extends BasePricedOrderEventPayload {
+  listing_type: string
+  listing_date: string
+  is_private: boolean
 }
 
 export type ItemListedEvent = BaseStreamMessage<ItemListedEventPayload>
@@ -174,18 +189,12 @@ export type Transaction = {
   timestamp: string
 }
 
-export interface ItemSoldEventPayload extends Payload {
-  quantity: number
+export interface ItemSoldEventPayload extends BaseOrderEventPayload {
   listing_type: string
   closing_date: string
   transaction: Transaction
-  maker: Account
-  taker: Account
-  order_hash: string
   sale_price: string
-  payment_token: PaymentToken
   is_private: boolean
-  event_timestamp: string
 }
 
 export type ItemSoldEvent = BaseStreamMessage<ItemSoldEventPayload>
@@ -201,65 +210,42 @@ export interface ItemTransferredEventPayload extends Payload {
 export type ItemTransferredEvent =
   BaseStreamMessage<ItemTransferredEventPayload>
 
-export interface ItemReceivedBidEventPayload extends Payload {
-  quantity: number
+export interface ItemReceivedBidEventPayload
+  extends BasePricedOrderEventPayload {
   created_date: string
-  expiration_date: string
-  maker: Account
-  taker: Account
-  order_hash: string
-  base_price: string
-  payment_token: PaymentToken
-  event_timestamp: string
 }
 
 export type ItemReceivedBidEvent =
   BaseStreamMessage<ItemReceivedBidEventPayload>
 
-export interface ItemReceivedOfferEventPayload extends Payload {
-  quantity: number
-  created_date: string
-  expiration_date: string
-  maker: Account
-  taker: Account
-  order_hash: string
-  base_price: string
-  payment_token: PaymentToken
-  event_timestamp: string
-}
+/**
+ * @deprecated Never emitted. Use {@link ItemReceivedBidEventPayload}.
+ * @hidden
+ */
+export interface ItemReceivedOfferEventPayload
+  extends ItemReceivedBidEventPayload {}
 
+/**
+ * @deprecated Never emitted. Use {@link ItemReceivedBidEvent}.
+ * @hidden
+ */
 export type ItemReceivedOfferEvent =
   BaseStreamMessage<ItemReceivedOfferEventPayload>
 
-export interface ItemCancelledEventPayload extends Payload {
-  quantity: number
-  base_price: string
-  expiration_date: string
-  maker: Account
-  taker: Account
+export interface ItemCancelledEventPayload extends BasePricedOrderEventPayload {
   listing_type: string
   listing_date: string
   transaction: Transaction
-  payment_token: PaymentToken
-  order_hash: string
   is_private: boolean
-  event_timestamp: string
 }
 
 export type ItemCancelledEvent = BaseStreamMessage<ItemCancelledEventPayload>
 
-export interface CollectionOfferEventPayload extends Payload {
-  quantity: number
+export interface CollectionOfferEventPayload
+  extends BasePricedOrderEventPayload {
   created_date: string
-  expiration_date: string
-  maker: Account
-  taker: Account
-  base_price: string
-  order_hash: string
-  payment_token: PaymentToken
   collection_criteria: CollectionIdentifier
   asset_contract_criteria: AssetContractCriteria
-  event_timestamp: string
 }
 
 export type CollectionOfferEvent =
@@ -270,20 +256,9 @@ export type TraitCriteria = {
   trait_name: string
 }
 
-export interface TraitOfferEventPayload extends Payload {
-  quantity: number
-  created_date: string
-  expiration_date: string
-  maker: Account
-  taker: Account
-  base_price: string
-  order_hash: string
-  payment_token: PaymentToken
-  collection_criteria: CollectionIdentifier
-  asset_contract_criteria: AssetContractCriteria
+export interface TraitOfferEventPayload extends CollectionOfferEventPayload {
   trait_criteria?: TraitCriteria
   trait_criteria_list?: TraitCriteria[]
-  event_timestamp: string
 }
 
 export type TraitOfferEvent = BaseStreamMessage<TraitOfferEventPayload>

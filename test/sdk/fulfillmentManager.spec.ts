@@ -260,6 +260,51 @@ describe("SDK: FulfillmentManager", () => {
       expect(apiCall[7]).toBe(recipientAddress)
     })
 
+    test("appends the attribution suffix the API returns to the calldata", async () => {
+      // Production returns calldata_suffix on every fulfillment response. The
+      // SDK re-encodes the call from inputData, so it has to re-attach the
+      // suffix or the fill goes onchain unattributed.
+      mockAPI.generateFulfillmentData.mockResolvedValue({
+        fulfillmentData: {
+          transaction: {
+            to: "0xSeaportAddress",
+            value: 0,
+            function: "fulfillBasicOrder_efficient_6GL6yc((uint256))",
+            inputData: { parameters: { offerer: "0xOfferer" } },
+            calldataSuffix: "0xcdb44011",
+          },
+          orders: [{ signature: "0xSignature" }],
+        },
+      })
+      const mockContractCaller = (fulfillmentManager as any).context
+        .contractCaller
+      mockContractCaller.encodeFunctionData.mockReturnValue("0xdeadbeef")
+
+      await fulfillmentManager.fulfillOrder({
+        order: mockOrderV2,
+        accountAddress: "0xBuyer",
+      })
+
+      expect(mockSigner.sendTransaction.mock.calls[0][0].data).toBe(
+        "0xdeadbeefcdb44011",
+      )
+    })
+
+    test("sends the encoded calldata unchanged when the API sends no suffix", async () => {
+      const mockContractCaller = (fulfillmentManager as any).context
+        .contractCaller
+      mockContractCaller.encodeFunctionData.mockReturnValue("0xdeadbeef")
+
+      await fulfillmentManager.fulfillOrder({
+        order: mockOrderV2,
+        accountAddress: "0xBuyer",
+      })
+
+      expect(mockSigner.sendTransaction.mock.calls[0][0].data).toBe(
+        "0xdeadbeef",
+      )
+    })
+
     test("encodes fulfillBasicOrder alias using supported fragment", async () => {
       mockAPI.generateFulfillmentData.mockResolvedValue({
         fulfillmentData: {
@@ -268,7 +313,10 @@ describe("SDK: FulfillmentManager", () => {
             value: 0,
             function: "fulfillBasicOrder_efficient_6GL6yc((uint256))",
             inputData: {
-              basicOrderParameters: {
+              // The API names this `parameters`, not `basicOrderParameters`:
+              // it serializes the decoded Seaport call, whose basic-order
+              // variant carries a single `parameters` struct.
+              parameters: {
                 offerer: "0xOfferer",
                 zone: "0x0000000000000000000000000000000000000000",
               },

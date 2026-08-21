@@ -165,16 +165,6 @@ describe("WalletAuthAPI", () => {
       ],
       [
         "PUT",
-        "/api/v2/accounts/wallets/agent%2Fwallet/agent",
-        () => api.markWalletAsAgent("agent/wallet"),
-      ],
-      [
-        "DELETE",
-        "/api/v2/accounts/wallets/agent%2Fwallet/agent",
-        () => api.removeWalletAgentDesignation("agent/wallet"),
-      ],
-      [
-        "PUT",
         "/api/v2/accounts/wallets/0xabc/private",
         () => api.makeWalletPrivate("0xabc"),
       ],
@@ -183,6 +173,31 @@ describe("WalletAuthAPI", () => {
         "/api/v2/accounts/wallets/0xabc/private",
         () => api.makeWalletPublic("0xabc"),
       ],
+      ["PUT", "/api/v2/accounts/agent", () => api.declareAgentAccount()],
+      [
+        "DELETE",
+        "/api/v2/accounts/agent",
+        () => api.withdrawAgentAccountDeclaration(),
+      ],
+      [
+        "POST",
+        "/api/v2/accounts/agent-relationships",
+        () => api.proposeAgentRelationship(body),
+      ],
+      [
+        "POST",
+        "/api/v2/accounts/agent-relationships/confirm",
+        () => api.confirmAgentRelationship(body),
+      ],
+      [
+        "DELETE",
+        "/api/v2/accounts/agent-relationships?counterparty_address=0xabc&caller_role=AGENT",
+        () =>
+          api.revokeAgentRelationship({
+            counterpartyAddress: "0xabc",
+            callerRole: "AGENT",
+          }),
+      ],
     ]
 
     for (const [method, path, run] of cases) {
@@ -190,18 +205,6 @@ describe("WalletAuthAPI", () => {
       await run()
       expect(request.mock.calls[0]?.slice(0, 2)).toEqual([method, path])
     }
-  })
-
-  it("returns the updated wallet agent status", async () => {
-    request.mockResolvedValueOnce({
-      address: "0xabc",
-      isAgent: true,
-    })
-
-    await expect(api.markWalletAsAgent("0xabc")).resolves.toEqual({
-      address: "0xabc",
-      isAgent: true,
-    })
   })
 
   it("forwards the request body and returns the response for nft pfp helpers", async () => {
@@ -272,6 +275,73 @@ describe("WalletAuthAPI", () => {
     expect(get).toHaveBeenLastCalledWith("/api/v2/saved-tools", {
       toolkitName: "trading",
       limit: 5,
+    })
+  })
+
+  describe("agent accounts", () => {
+    it("sends the caller's own side in the propose and confirm bodies", async () => {
+      const proposal = {
+        counterpartyAddress: "0xowner",
+        callerRole: "AGENT",
+      } as const
+
+      await api.proposeAgentRelationship(proposal)
+      expect(request).toHaveBeenLastCalledWith(
+        "POST",
+        "/api/v2/accounts/agent-relationships",
+        proposal,
+      )
+
+      await api.confirmAgentRelationship(proposal)
+      expect(request).toHaveBeenLastCalledWith(
+        "POST",
+        "/api/v2/accounts/agent-relationships/confirm",
+        proposal,
+      )
+    })
+
+    it("puts revoke arguments in the query string, not a DELETE body", async () => {
+      await api.revokeAgentRelationship({
+        counterpartyAddress: "0xagent",
+        callerRole: "OWNER",
+      })
+
+      const [method, path, body] = request.mock.calls.at(-1) ?? []
+      expect(method).toBe("DELETE")
+      expect(path).toBe(
+        "/api/v2/accounts/agent-relationships?counterparty_address=0xagent&caller_role=OWNER",
+      )
+      // fetch, OkHttp and urllib all drop DELETE bodies, so there must not be one.
+      expect(body).toBeUndefined()
+    })
+
+    it("percent-encodes revoke query values", async () => {
+      await api.revokeAgentRelationship({
+        counterpartyAddress: "0x a&b",
+        callerRole: "AGENT",
+      })
+
+      expect(request.mock.calls.at(-1)?.[1]).toBe(
+        "/api/v2/accounts/agent-relationships?counterparty_address=0x+a%26b&caller_role=AGENT",
+      )
+    })
+
+    it("reads the caller's own relationships over GET", async () => {
+      await api.listOwnAgentRelationships()
+      expect(get).toHaveBeenLastCalledWith(
+        "/api/v2/accounts/agent-relationships",
+      )
+    })
+
+    it("declares and withdraws without a request body", async () => {
+      await api.declareAgentAccount()
+      expect(request).toHaveBeenLastCalledWith("PUT", "/api/v2/accounts/agent")
+
+      await api.withdrawAgentAccountDeclaration()
+      expect(request).toHaveBeenLastCalledWith(
+        "DELETE",
+        "/api/v2/accounts/agent",
+      )
     })
   })
 })

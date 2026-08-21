@@ -8,6 +8,7 @@ describe("OpenSea auth scopes", () => {
       READ_FAVORITES: "read:favorites",
       READ_SOCIAL: "read:social",
       READ_TOOLS: "read:tools",
+      READ_WALLETS: "read:wallets",
       WRITE_FAVORITES: "write:favorites",
       WRITE_SOCIAL: "write:social",
       WRITE_TOOLS: "write:tools",

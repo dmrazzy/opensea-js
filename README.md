@@ -82,8 +82,7 @@ try {
     authToken: token.accessToken,
   })
   await api.walletAuth.getFavorites(await signer.getAddress(), { limit: 10 })
-  await api.walletAuth.markWalletAsAgent(await signer.getAddress())
-  await api.walletAuth.removeWalletAgentDesignation(await signer.getAddress())
+  await api.walletAuth.declareAgentAccount()
 } finally {
   await auth.revoke(token.accessToken)
 }

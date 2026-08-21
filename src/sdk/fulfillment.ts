@@ -3,6 +3,7 @@ import type { OrderComponents } from "@opensea/seaport-js/lib/types"
 import { CONDUIT_CONTROLLER_ABI, ERC20_ABI } from "../abi/abis"
 import type { Listing, Offer, Order } from "../api/types"
 import { CONDUIT_CONTROLLER_ADDRESS } from "../constants"
+import { appendCalldataSuffix } from "../orders/attribution"
 import {
   getErc20Payment,
   getFulfillerConduitKey,
@@ -216,9 +217,9 @@ export class FulfillmentManager {
     } else if (
       (functionName === "fulfillBasicOrder" ||
         rawFunctionName === FULFILL_BASIC_ORDER_ALIAS) &&
-      "basicOrderParameters" in inputData
+      "parameters" in inputData
     ) {
-      params = [inputData.basicOrderParameters]
+      params = [inputData.parameters]
     } else if (functionName === "fulfillOrder" && "order" in inputData) {
       params = [
         inputData.order,
@@ -243,6 +244,10 @@ export class FulfillmentManager {
       args: params,
     })
 
+    // Re-encoding from inputData drops the attribution suffix the API appended
+    // to its own calldata, so put it back. See appendCalldataSuffix.
+    const data = appendCalldataSuffix(encodedData, transaction.calldataSuffix)
+
     // Send the transaction using the signer from wallet
     const wallet = this.context.wallet
     if (!("signer" in wallet)) {
@@ -251,7 +256,7 @@ export class FulfillmentManager {
     const tx = await wallet.signer.sendTransaction({
       to: transaction.to,
       value: BigInt(transaction.value),
-      data: encodedData,
+      data,
       overrides: overrides as Record<string, unknown>,
     })
 

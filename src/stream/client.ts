@@ -76,22 +76,41 @@ export class OpenSeaStreamClient {
     this.transport.onError(onError ?? (error => this.error(error)))
   }
 
-  private debug(message: unknown) {
-    if (this.logLevel <= LogLevel.DEBUG) {
-      console.debug("[DEBUG]:", message)
+  private log(level: LogLevel, message: unknown) {
+    if (this.logLevel > level) {
+      return
     }
+
+    switch (level) {
+      case LogLevel.DEBUG:
+        console.debug("[DEBUG]:", message)
+        break
+      case LogLevel.INFO:
+        console.info("[INFO]:", message)
+        break
+      case LogLevel.WARN:
+        console.warn("[WARN]:", message)
+        break
+      case LogLevel.ERROR:
+        console.error("[ERROR]:", message)
+        break
+    }
+  }
+
+  private debug(message: unknown) {
+    this.log(LogLevel.DEBUG, message)
   }
 
   private info(message: unknown) {
-    if (this.logLevel <= LogLevel.INFO) {
-      console.info("[INFO]:", message)
-    }
+    this.log(LogLevel.INFO, message)
+  }
+
+  private warn(message: unknown) {
+    this.log(LogLevel.WARN, message)
   }
 
   private error(message: unknown) {
-    if (this.logLevel <= LogLevel.ERROR) {
-      console.error("[ERROR]:", message)
-    }
+    this.log(LogLevel.ERROR, message)
   }
 
   public connect = () => {
@@ -149,7 +168,6 @@ export class OpenSeaStreamClient {
     collectionSlug: string,
     callback: Callback<ItemMetadataUpdate>,
   ) => {
-    this.debug(`Listening for item metadata updates on "${collectionSlug}"`)
     return this.on(EventType.ITEM_METADATA_UPDATED, collectionSlug, callback)
   }
 
@@ -157,7 +175,6 @@ export class OpenSeaStreamClient {
     collectionSlug: string,
     callback: Callback<ItemCancelledEvent>,
   ) => {
-    this.debug(`Listening for item cancellations on "${collectionSlug}"`)
     return this.on(EventType.ITEM_CANCELLED, collectionSlug, callback)
   }
 
@@ -165,7 +182,6 @@ export class OpenSeaStreamClient {
     collectionSlug: string,
     callback: Callback<ItemListedEvent>,
   ) => {
-    this.debug(`Listening for item listings on "${collectionSlug}"`)
     return this.on(EventType.ITEM_LISTED, collectionSlug, callback)
   }
 
@@ -173,7 +189,6 @@ export class OpenSeaStreamClient {
     collectionSlug: string,
     callback: Callback<ItemSoldEvent>,
   ) => {
-    this.debug(`Listening for item sales on "${collectionSlug}"`)
     return this.on(EventType.ITEM_SOLD, collectionSlug, callback)
   }
 
@@ -181,23 +196,34 @@ export class OpenSeaStreamClient {
     collectionSlug: string,
     callback: Callback<ItemTransferredEvent>,
   ) => {
-    this.debug(`Listening for item transfers on "${collectionSlug}"`)
     return this.on(EventType.ITEM_TRANSFERRED, collectionSlug, callback)
   }
 
+  /**
+   * No-op. The Stream API does not emit `item_received_offer` and never has, so
+   * this only ever registered a handler that could not fire. Item-level offers
+   * arrive as `item_received_bid`, so use {@link onItemReceivedBid} instead.
+   *
+   * Kept callable, and kept from opening a connection for a topic that yields
+   * nothing, so existing call sites keep compiling and running unchanged.
+   *
+   * @deprecated Use {@link onItemReceivedBid}. This does nothing.
+   * @hidden
+   */
   public onItemReceivedOffer = (
-    collectionSlug: string,
-    callback: Callback<ItemReceivedOfferEvent>,
+    _collectionSlug: string,
+    _callback: Callback<ItemReceivedOfferEvent>,
   ) => {
-    this.debug(`Listening for item offers on "${collectionSlug}"`)
-    return this.on(EventType.ITEM_RECEIVED_OFFER, collectionSlug, callback)
+    this.warn(
+      "onItemReceivedOffer does nothing: the Stream API does not emit item_received_offer. Item-level offers arrive as item_received_bid, via onItemReceivedBid.",
+    )
+    return () => {}
   }
 
   public onItemReceivedBid = (
     collectionSlug: string,
     callback: Callback<ItemReceivedBidEvent>,
   ) => {
-    this.debug(`Listening for item bids on "${collectionSlug}"`)
     return this.on(EventType.ITEM_RECEIVED_BID, collectionSlug, callback)
   }
 
@@ -205,7 +231,6 @@ export class OpenSeaStreamClient {
     collectionSlug: string,
     callback: Callback<CollectionOfferEvent>,
   ) => {
-    this.debug(`Listening for collection offers on "${collectionSlug}"`)
     return this.on(EventType.COLLECTION_OFFER, collectionSlug, callback)
   }
 
@@ -213,7 +238,6 @@ export class OpenSeaStreamClient {
     collectionSlug: string,
     callback: Callback<TraitOfferEvent>,
   ) => {
-    this.debug(`Listening for trait offers on "${collectionSlug}"`)
     return this.on(EventType.TRAIT_OFFER, collectionSlug, callback)
   }
 
@@ -221,7 +245,6 @@ export class OpenSeaStreamClient {
     collectionSlug: string,
     callback: Callback<OrderValidationEvent>,
   ) => {
-    this.debug(`Listening for order invalidation events on "${collectionSlug}"`)
     return this.on(EventType.ORDER_INVALIDATE, collectionSlug, callback)
   }
 
@@ -229,7 +252,6 @@ export class OpenSeaStreamClient {
     collectionSlug: string,
     callback: Callback<OrderValidationEvent>,
   ) => {
-    this.debug(`Listening for order revalidation events on "${collectionSlug}"`)
     return this.on(EventType.ORDER_REVALIDATE, collectionSlug, callback)
   }
 

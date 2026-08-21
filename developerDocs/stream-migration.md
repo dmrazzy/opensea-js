@@ -145,8 +145,8 @@ seaport, and no third-party runtime code.
 ## What did not change
 
 - Every `on*` method: `onItemListed`, `onItemSold`, `onItemTransferred`,
-  `onItemMetadataUpdated`, `onItemCancelled`, `onItemReceivedOffer`,
-  `onItemReceivedBid`, `onCollectionOffer`, `onTraitOffer`,
+  `onItemMetadataUpdated`, `onItemCancelled`, `onItemReceivedBid`,
+  `onCollectionOffer`, `onTraitOffer`,
   `onOrderInvalidate`, `onOrderRevalidate`, and `onEvents`.
 - Every event and payload type, unchanged field for field.
 - `EventType`, `LogLevel`, `Network`, `OnClientEvent`, and `Callback`.
